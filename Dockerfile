@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY . .
 
 # Expose the port
-EXPOSE 8513
+EXPOSE 8813
 
 # Run the application
 CMD ["streamlit", "run", "app.py", "--server.port=8513", "--server.address=0.0.0.0", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
