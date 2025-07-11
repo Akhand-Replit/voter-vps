@@ -1,1 +1,1 @@
-data - dhakaofficework - neon.tech - postgress - free deploy - streamlit.io - repit
+Akhnad Voter 2nd version for structrured datasets
