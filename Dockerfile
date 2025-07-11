@@ -22,4 +22,4 @@ COPY . .
 EXPOSE 8813
 
 # Run the application
-CMD ["streamlit", "run", "app.py", "--server.port=8513", "--server.address=0.0.0.0", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
+CMD ["streamlit", "run", "app.py", "--server.port=8813", "--server.address=0.0.0.0", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
