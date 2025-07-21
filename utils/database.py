@@ -11,9 +11,6 @@ class Database:
     """
     Handles all database operations for the application, including connecting to
     PostgreSQL, creating tables, and managing records, batches, and events.
-
-    port=st.secrets["DB_PORT"],
-    port=9877,
     """
     def __init__(self):
         """Initializes the database connection using credentials from Streamlit secrets."""
@@ -292,7 +289,7 @@ class Database:
             self.conn.commit()
 
     def get_relationship_records(self, status: str):
-        """Retrieves all records with a specific relationship status."""
+        """Retrieves all records with a specific relationship status, including their events."""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute("""
                 SELECT r.*, b.name as batch_name
@@ -301,7 +298,10 @@ class Database:
                 WHERE r.relationship_status = %s
                 ORDER BY r.created_at DESC
             """, (status,))
-            return cur.fetchall()
+            records = cur.fetchall()
+        for record in records:
+            record['events'] = self.get_events_for_record(record['id'])
+        return records
 
     def get_batch_by_name(self, batch_name):
         """Retrieves batch information by its name."""
@@ -321,4 +321,3 @@ class Database:
             cur.execute("DELETE FROM records WHERE batch_id = %s", (batch_id,))
             cur.execute("DELETE FROM batches WHERE id = %s", (batch_id,))
             self.conn.commit()
-
