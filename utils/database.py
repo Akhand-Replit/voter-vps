@@ -82,6 +82,29 @@ class Database:
             """)
             self.conn.commit()
 
+    def get_dashboard_stats(self):
+        """Retrieves key statistics for the main dashboard."""
+        stats = {}
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Total records
+            cur.execute("SELECT COUNT(*) as total_records FROM records")
+            stats['total_records'] = cur.fetchone()['total_records']
+
+            # Total batches
+            cur.execute("SELECT COUNT(*) as total_batches FROM batches")
+            stats['total_batches'] = cur.fetchone()['total_batches']
+
+            # Total events
+            cur.execute("SELECT COUNT(*) as total_events FROM events")
+            stats['total_events'] = cur.fetchone()['total_events']
+
+            # Relationship counts
+            cur.execute("SELECT relationship_status, COUNT(*) as count FROM records GROUP BY relationship_status")
+            relationship_counts = cur.fetchall()
+            stats['relationships'] = {item['relationship_status']: item['count'] for item in relationship_counts}
+
+        return stats
+
     # --- Event Management ---
     def add_event(self, event_name):
         """Adds a new event to the database."""
