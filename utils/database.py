@@ -14,7 +14,7 @@ class Database:
                 user=st.secrets["DB_USER"],
                 password=st.secrets["DB_PASSWORD"],
                 host=st.secrets["DB_HOST"],
-                port=5450,
+                port=st.secrets["DB_PORT"],
             )
             self.create_tables()
         except psycopg2.OperationalError as e:
