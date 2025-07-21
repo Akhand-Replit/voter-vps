@@ -8,53 +8,57 @@ logger = logging.getLogger(__name__)
 apply_custom_styling()
 
 def display_result_card(result, db):
-    # Get batch and file information
-    batch_info = db.get_batch_by_id(result['batch_id'])
+    """
+    Displays a single search result in a well-formatted card.
+    Uses st.container with a border for a clean, modern look.
+    """
+    # Use a container with a border for each card
+    with st.container(border=True):
+        # Header with name and serial number
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.markdown(f"### {result.get('নাম', 'N/A')}")
+        with col2:
+            st.markdown(f"**ক্রমিক নং:** {result.get('ক্রমিক_নং', 'N/A')}")
 
-    with st.container():
-        st.markdown("""
-        <style>
-        .result-card {
-            padding: 1rem;
-            border-radius: 0.5rem;
-            background-color: #f8f9fa;
-            margin-bottom: 1rem;
-            border: 1px solid #dee2e6;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+        # Location info (Batch and File)
+        batch_info = db.get_batch_by_id(result['batch_id'])
+        location_str = batch_info['name'] if batch_info else "Unknown Batch"
+        if result.get('file_name'):
+            location_str += f" / {result['file_name']}"
+        st.markdown(f"📍 **স্থান:** {location_str}")
 
-        with st.container():
-            st.markdown('<div class="result-card">', unsafe_allow_html=True)
+        st.markdown("---")
 
-            # Header with name and ID
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.markdown(f"### {result['নাম']}")
-            with col2:
-                st.markdown(f"**ক্রমিক নং:** {result['ক্রমিক_নং']}")
+        # Main details in two columns for better organization
+        col3, col4 = st.columns(2)
+        with col3:
+            st.markdown(f"**ভোটার নং:** {result.get('ভোটার_নং', 'N/A')}")
+            st.markdown(f"**পিতার নাম:** {result.get('পিতার_নাম', 'N/A')}")
+            st.markdown(f"**মাতার নাম:** {result.get('মাতার_নাম', 'N/A')}")
+        with col4:
+            st.markdown(f"**পেশা:** {result.get('পেশা', 'N/A')}")
+            st.markdown(f"**জন্ম তারিখ:** {result.get('জন্ম_তারিখ', 'N/A')}")
+            st.markdown(f"**ঠিকানা:** {result.get('ঠিকানা', 'N/A')}")
 
-            # Location info with batch name and file name
-            st.markdown(f"📍 **Location:** {batch_info['name']}" + 
-                       (f" / {result['file_name']}" if result.get('file_name') else ""))
+        st.markdown("---")
 
-            # Main details
-            col3, col4 = st.columns(2)
-            with col3:
-                st.markdown(f"**ভোটার নং:** {result['ভোটার_নং']}")
-                st.markdown(f"**পিতার নাম:** {result['পিতার_নাম']}")
-                st.markdown(f"**মাতার নাম:** {result['মাতার_নাম']}")
-            with col4:
-                st.markdown(f"**পেশা:** {result['পেশা']}")
-                st.markdown(f"**ঠিকানা:** {result['ঠিকানা']}")
-                st.markdown(f"**জন্ম তারিখ:** {result['জন্ম_তারিখ']}")
+        # Display assigned events
+        events_list = result.get('events', [])
+        if events_list:
+            st.markdown(f"**নির্ধারিত ইভেন্টস:** {', '.join(events_list)}")
+        else:
+            st.markdown("**নির্ধারিত ইভেন্টস:** N/A")
 
-            # Relationship status
-            st.markdown(f"**সম্পর্কের ধরণ:** {result['relationship_status']}")
+        # Display relationship status
+        st.markdown(f"**সম্পর্কের ধরণ:** {result.get('relationship_status', 'N/A')}")
 
-            st.markdown('</div>', unsafe_allow_html=True)
 
 def search_page():
+    """
+    The main function for the search page.
+    Provides input fields for searching and displays results.
+    """
     if 'authenticated' not in st.session_state or not st.session_state.authenticated:
         st.warning("অনুগ্রহ করে প্রথমে লগইন করুন")
         return
@@ -63,27 +67,22 @@ def search_page():
 
     db = Database()
 
-    # Advanced search fields
-    with st.container():
+    # Search fields within a container for better layout
+    with st.container(border=True):
         col1, col2 = st.columns(2)
-
         with col1:
             si_number = st.text_input("ক্রমিক নং")
             name = st.text_input("নাম")
             mothers_name = st.text_input("মাতার নাম")
             date_of_birth = st.text_input("জন্ম তারিখ")
-
         with col2:
             voter_no = st.text_input("ভোটার নং")
-            fathers_name = st.text_input("পিতার নং")
+            fathers_name = st.text_input("পিতার নাম")
             occupation = st.text_input("পেশা")
             address = st.text_input("ঠিকানা")
             
-
-    # Search buttons
-    search_button = st.button("অনুসন্ধান করুন", type="primary", use_container_width=True)
-
-    if search_button:
+    # Search button
+    if st.button("অনুসন্ধান করুন", type="primary", use_container_width=True):
         try:
             with st.spinner("অনুসন্ধান করা হচ্ছে..."):
                 search_criteria = {
@@ -96,18 +95,22 @@ def search_page():
                     'ঠিকানা': address,
                     'জন্ম_তারিখ': date_of_birth
                 }
-                # Remove empty criteria
+                # Remove empty criteria to avoid searching on empty strings
                 search_criteria = {k: v for k, v in search_criteria.items() if v}
+                
+                if not search_criteria:
+                    st.warning("অনুসন্ধানের জন্য অন্তত একটি ফিল্টার পূরণ করুন।")
+                    return
+
                 results = db.search_records_advanced(search_criteria)
 
                 if results:
                     st.success(f"{len(results)}টি ফলাফল পাওয়া গেছে")
-
-                    # Display results in card format
+                    # Display results in the improved card format
                     for result in results:
                         display_result_card(result, db)
                 else:
-                    st.info("কোন ফলাফল পাওয়া যায়নি")
+                    st.info("আপনার অনুসন্ধানের সাথে মেলে এমন কোনো ফলাফল পাওয়া যায়নি।")
 
         except Exception as e:
             logger.error(f"Search error: {str(e)}")
