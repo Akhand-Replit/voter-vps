@@ -13,6 +13,7 @@ class Database:
     PostgreSQL, creating tables, and managing records, batches, and events.
 
     port=st.secrets["DB_PORT"],
+    port=9877,
     """
     def __init__(self):
         """Initializes the database connection using credentials from Streamlit secrets."""
@@ -22,7 +23,7 @@ class Database:
                 user=st.secrets["DB_USER"],
                 password=st.secrets["DB_PASSWORD"],
                 host=st.secrets["DB_HOST"],
-                port=9877,
+                port=st.secrets["DB_PORT"],
             )
             self.create_tables()
         except psycopg2.OperationalError as e:
