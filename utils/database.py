@@ -12,45 +12,32 @@ class Database:
             self.conn = psycopg2.connect(
                 dbname=st.secrets["DB_NAME"],
                 user=st.secrets["DB_USER"],
-                password=st.secrets["DB_PASSWORD"],  # Updated password
-                host=st.secrets["DB_HOST"],  # Updated host
-                port=5450,  # Port remains the same
+                password=st.secrets["DB_PASSWORD"],
+                host=st.secrets["DB_HOST"],
+                port=5450,
             )
-
             self.create_tables()
-        except psycopg2.OperationalError:
-            # If connection fails, try to create the database
+        except psycopg2.OperationalError as e:
+            logger.error(f"Database connection failed: {e}")
             raise Exception("Failed to connect to database. Please check your credentials.")
-            conn.autocommit = True
-            with conn.cursor() as cur:
-                cur.execute("CREATE DATABASE postgres")
-            conn.close()
-            # Try connecting again
-            self.conn = psycopg2.connect(
-                dbname='postgres',
-                user='runner',
-                password='',
-                host='127.0.0.1',
-                port=5432,
-                options="-c client_encoding=utf8"
-            )
-            self.create_tables()
 
     def create_tables(self):
+        """Create all necessary tables if they don't exist."""
         with self.conn.cursor() as cur:
-            # Create tables if they don't exist
+            # Batches Table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS batches (
                     id SERIAL PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL,
+                    name VARCHAR(255) UNIQUE NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
 
+            # Records Table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS records (
                     id SERIAL PRIMARY KEY,
-                    batch_id INTEGER REFERENCES batches(id),
+                    batch_id INTEGER REFERENCES batches(id) ON DELETE CASCADE,
                     file_name VARCHAR(255),
                     ক্রমিক_নং VARCHAR(50),
                     নাম TEXT,
@@ -64,18 +51,78 @@ class Database:
                     facebook_link TEXT,
                     photo_link TEXT,
                     description TEXT,
-                    relationship_status VARCHAR(10) DEFAULT 'Regular',
+                    relationship_status VARCHAR(20) DEFAULT 'Regular',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            self.conn.commit()
+
+            # Events Table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS events (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
+            # Record-Events Junction Table (for many-to-many relationship)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS record_events (
+                    record_id INTEGER REFERENCES records(id) ON DELETE CASCADE,
+                    event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+                    PRIMARY KEY (record_id, event_id)
+                )
+            """)
             self.conn.commit()
 
+    # --- Event Management ---
+    def add_event(self, event_name):
+        """Add a new event."""
+        with self.conn.cursor() as cur:
+            cur.execute("INSERT INTO events (name) VALUES (%s) ON CONFLICT (name) DO NOTHING", (event_name,))
+            self.conn.commit()
+
+    def get_all_events(self):
+        """Get all events."""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM events ORDER BY name")
+            return cur.fetchall()
+
+    def delete_event(self, event_id):
+        """Delete an event and its associations."""
+        with self.conn.cursor() as cur:
+            cur.execute("DELETE FROM record_events WHERE event_id = %s", (event_id,))
+            cur.execute("DELETE FROM events WHERE id = %s", (event_id,))
+            self.conn.commit()
+
+    def get_events_for_record(self, record_id):
+        """Get all event names for a specific record."""
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                SELECT e.name
+                FROM events e
+                JOIN record_events re ON e.id = re.event_id
+                WHERE re.record_id = %s
+                ORDER BY e.name
+            """, (record_id,))
+            return [row[0] for row in cur.fetchall()]
+
+    def assign_events_to_record(self, record_id, event_ids):
+        """Assign a list of events to a record, replacing existing ones."""
+        with self.conn.cursor() as cur:
+            # Remove old associations
+            cur.execute("DELETE FROM record_events WHERE record_id = %s", (record_id,))
+            # Add new associations
+            if event_ids:
+                args_str = ','.join(cur.mogrify("(%s,%s)", (record_id, event_id)).decode('utf-8') for event_id in event_ids)
+                cur.execute("INSERT INTO record_events (record_id, event_id) VALUES " + args_str)
+            self.conn.commit()
+
+    # --- Record & Batch Management (existing functions) ---
     def clear_all_data(self):
         """Clear all data from the database"""
         with self.conn.cursor() as cur:
-            cur.execute("TRUNCATE records CASCADE")
-            cur.execute("TRUNCATE batches CASCADE")
+            cur.execute("TRUNCATE record_events, records, batches, events RESTART IDENTITY CASCADE")
             self.conn.commit()
 
     def get_batch_files(self, batch_id):
@@ -97,14 +144,17 @@ class Database:
                 FROM records r
                 JOIN batches b ON r.batch_id = b.id
                 WHERE r.batch_id = %s AND r.file_name = %s
-                ORDER BY r.created_at DESC
+                ORDER BY r.id
             """, (batch_id, file_name))
-            return cur.fetchall()
+            records = cur.fetchall()
+        for record in records:
+            record['events'] = self.get_events_for_record(record['id'])
+        return records
 
     def add_batch(self, batch_name):
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                "INSERT INTO batches (name) VALUES (%s) RETURNING id, name, created_at",
+                "INSERT INTO batches (name) VALUES (%s) ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id",
                 (batch_name,)
             )
             result = cur.fetchone()
@@ -137,40 +187,23 @@ class Database:
         with self.conn.cursor() as cur:
             query = """
                 UPDATE records SET
-                    ক্রমিক_নং = %s,
-                    নাম = %s,
-                    ভোটার_নং = %s,
-                    পিতার_নাম = %s,
-                    মাতার_নাম = %s,
-                    পেশা = %s,
-                    ঠিকানা = %s,
-                    জন্ম_তারিখ = %s,
-                    phone_number = %s,
-                    facebook_link = %s,
-                    photo_link = %s,
-                    description = %s,
-                    relationship_status = %s
+                    ক্রমিক_নং = %s, নাম = %s, ভোটার_নং = %s, পিতার_নাম = %s,
+                    মাতার_নাম = %s, পেশা = %s, ঠিকানা = %s, জন্ম_তারিখ = %s,
+                    phone_number = %s, facebook_link = %s, photo_link = %s,
+                    description = %s, relationship_status = %s
                 WHERE id = %s
             """
             values = (
-                str(updated_data.get('ক্রমিক_নং', '')),
-                str(updated_data.get('নাম', '')),
-                str(updated_data.get('ভোটার_নং', '')),
-                str(updated_data.get('পিতার_নাম', '')),
-                str(updated_data.get('মাতার_নাম', '')),
-                str(updated_data.get('পেশা', '')),
-                str(updated_data.get('ঠিকানা', '')),
-                str(updated_data.get('জন্ম_তারিখ', '')),
-                str(updated_data.get('phone_number', '')),
-                str(updated_data.get('facebook_link', '')),
-                str(updated_data.get('photo_link', '')),
-                str(updated_data.get('description', '')),
-                str(updated_data.get('relationship_status', 'Regular')),
-                record_id
+                str(updated_data.get('ক্রমিক_নং', '')), str(updated_data.get('নাম', '')),
+                str(updated_data.get('ভোটার_নং', '')), str(updated_data.get('পিতার_নাম', '')),
+                str(updated_data.get('মাতার_নাম', '')), str(updated_data.get('পেশা', '')),
+                str(updated_data.get('ঠিকানা', '')), str(updated_data.get('জন্ম_তারিখ', '')),
+                str(updated_data.get('phone_number', '')), str(updated_data.get('facebook_link', '')),
+                str(updated_data.get('photo_link', '')), str(updated_data.get('description', '')),
+                str(updated_data.get('relationship_status', 'Regular')), record_id
             )
             cur.execute(query, values)
             self.conn.commit()
-
 
     def search_records_advanced(self, criteria):
         """Advanced search with multiple criteria"""
@@ -182,33 +215,16 @@ class Database:
                 WHERE 1=1
             """
             params = []
-
             for field, value in criteria.items():
-                if value and field != 'relationship_status':
+                if value:
                     query += f" AND {field} ILIKE %s"
                     params.append(f"%{value}%")
-                elif value and field == 'relationship_status':
-                    query += f" AND {field} = %s"
-                    params.append(value)
-
-
-            query += " ORDER BY r.created_at DESC"
+            query += " ORDER BY r.id"
             cur.execute(query, params)
-            return cur.fetchall()
-
-    def search_records(self, search_term):
-        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT r.*, b.name as batch_name
-                FROM records r
-                JOIN batches b ON r.batch_id = b.id
-                WHERE 
-                    নাম ILIKE %s OR
-                    পিতার_নাম ILIKE %s OR
-                    মাতার_নাম ILIKE %s OR
-                    ঠিকানা ILIKE %s
-            """, (f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%"))
-            return cur.fetchall()
+            records = cur.fetchall()
+        for record in records:
+            record['events'] = self.get_events_for_record(record['id'])
+        return records
 
     def get_all_batches(self):
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -217,22 +233,17 @@ class Database:
 
     def get_batch_records(self, batch_id):
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-            if batch_id is None:
-                cur.execute("""
-                    SELECT r.*, b.name as batch_name
-                    FROM records r
-                    JOIN batches b ON r.batch_id = b.id
-                    ORDER BY r.created_at DESC
-                """)
-            else:
-                cur.execute("""
-                    SELECT r.*, b.name as batch_name
-                    FROM records r
-                    JOIN batches b ON r.batch_id = b.id
-                    WHERE r.batch_id = %s
-                    ORDER BY r.created_at DESC
-                """, (batch_id,))
-            return cur.fetchall()
+            cur.execute("""
+                SELECT r.*, b.name as batch_name
+                FROM records r
+                JOIN batches b ON r.batch_id = b.id
+                WHERE r.batch_id = %s
+                ORDER BY r.id
+            """, (batch_id,))
+            records = cur.fetchall()
+        for record in records:
+            record['events'] = self.get_events_for_record(record['id'])
+        return records
 
     def get_batch_occupation_stats(self, batch_id):
         """Get occupation statistics for a specific batch"""
@@ -241,8 +252,7 @@ class Database:
                 SELECT পেশা, COUNT(*) as count
                 FROM records
                 WHERE batch_id = %s
-                GROUP BY পেশা
-                ORDER BY count DESC
+                GROUP BY পেশা ORDER BY count DESC
             """, (batch_id,))
             return cur.fetchall()
 
@@ -252,19 +262,14 @@ class Database:
             cur.execute("""
                 SELECT পেশা, COUNT(*) as count
                 FROM records
-                GROUP BY পেশা
-                ORDER BY count DESC
+                GROUP BY পেশা ORDER BY count DESC
             """)
             return cur.fetchall()
 
     def update_relationship_status(self, record_id: int, status: str):
         """Update relationship status for a record"""
         with self.conn.cursor() as cur:
-            cur.execute("""
-                UPDATE records 
-                SET relationship_status = %s 
-                WHERE id = %s
-            """, (status, record_id))
+            cur.execute("UPDATE records SET relationship_status = %s WHERE id = %s", (status, record_id))
             self.conn.commit()
 
     def get_relationship_records(self, status: str):
@@ -279,14 +284,6 @@ class Database:
             """, (status,))
             return cur.fetchall()
 
-    def remove_relationship(self, record_id: int):
-        """Remove a relationship for a record -- this function is now obsolete"""
-        pass #This function is no longer needed.
-
-    def get_relationships(self, relationship_type: str):
-        """Get all records with a specific relationship type -- This function is now obsolete"""
-        pass #This function is no longer needed.
-
     def get_batch_by_name(self, batch_name):
         """Get batch information by name"""
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -299,52 +296,15 @@ class Database:
             cur.execute("SELECT * FROM batches WHERE id = %s", (batch_id,))
             return cur.fetchone()
 
-    def get_file_by_id(self, file_id):
-        """Get file information by file ID"""
-        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT DISTINCT file_name, batch_id
-                FROM records
-                WHERE id = %s
-            """, (file_id,))
-            return cur.fetchone()
-
     def delete_file(self, batch_id: int, file_name: str):
         """Delete a file and all its associated records from a batch"""
         with self.conn.cursor() as cur:
-            try:
-                # Start transaction
-                cur.execute("BEGIN")
-
-                # Delete all records associated with the file
-                cur.execute("""
-                    DELETE FROM records 
-                    WHERE batch_id = %s AND file_name = %s
-                """, (batch_id, file_name))
-
-                # Commit transaction
-                self.conn.commit()
-            except Exception as e:
-                self.conn.rollback()
-                logger.error(f"Error deleting file: {str(e)}")
-                raise e
+            cur.execute("DELETE FROM records WHERE batch_id = %s AND file_name = %s", (batch_id, file_name))
+            self.conn.commit()
 
     def delete_batch(self, batch_id: int):
         """Delete a batch and all its associated records"""
         with self.conn.cursor() as cur:
-            try:
-                # Start transaction
-                cur.execute("BEGIN")
-
-                # Delete all records in the batch
-                cur.execute("DELETE FROM records WHERE batch_id = %s", (batch_id,))
-
-                # Delete the batch
-                cur.execute("DELETE FROM batches WHERE id = %s", (batch_id,))
-
-                # Commit transaction
-                self.conn.commit()
-            except Exception as e:
-                self.conn.rollback()
-                logger.error(f"Error deleting batch: {str(e)}")
-                raise e
+            cur.execute("DELETE FROM records WHERE batch_id = %s", (batch_id,))
+            cur.execute("DELETE FROM batches WHERE id = %s", (batch_id,))
+            self.conn.commit()
