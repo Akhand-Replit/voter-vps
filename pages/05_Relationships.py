@@ -68,6 +68,14 @@ def display_relationship_card(record, db):
 
         # Description
         st.markdown(f"**বিবরণ:** {record.get('description', 'N/A')}")
+        
+        # Assigned Events
+        events_list = record.get('events', [])
+        if events_list:
+            st.markdown(f"**নির্ধারিত ইভেন্টস:** {', '.join(events_list)}")
+        else:
+            st.markdown(f"**নির্ধারিত ইভেন্টস:** N/A")
+
 
         # Relationship status
         st.markdown(f"**সম্পর্কের ধরণ:** {record['relationship_status']}")
