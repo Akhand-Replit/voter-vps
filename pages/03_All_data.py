@@ -16,15 +16,13 @@ def all_data_page():
     st.title("📁 সব তথ্য")
 
     db = Database()
-
-    # Get all batches
     batches = db.get_all_batches()
 
     if not batches:
         st.info("কোন ডাটা পাওয়া যায়নি")
         return
 
-    # Initialize session state for delete confirmation
+    # --- Session State Initialization ---
     if 'confirm_delete_all' not in st.session_state:
         st.session_state.confirm_delete_all = False
     if 'confirm_delete_batch' not in st.session_state:
@@ -32,210 +30,151 @@ def all_data_page():
     if 'confirm_delete_file' not in st.session_state:
         st.session_state.confirm_delete_file = None
 
-    # Clear all data button with confirmation dialog
+    # --- Header and Deletion Section ---
     col1, col2 = st.columns([5, 1])
     with col2:
         if st.button("সব ডাটা মুছুন", type="secondary"):
             st.session_state.confirm_delete_all = True
 
-    # Show confirmation dialog for all data deletion
     if st.session_state.confirm_delete_all:
-        st.warning("""
-        ⚠️ সতর্কতা!
-        আপনি কি নিশ্চিত যে আপনি সমস্ত ডেটা মুছে ফেলতে চান?
-        এই কাজটি অপরিবর্তনীয়!
-        """)
-
+        st.warning("⚠️ সতর্কতা! আপনি কি নিশ্চিত যে আপনি সমস্ত ডেটা মুছে ফেলতে চান? এই কাজটি অপরিবর্তনীয়!")
         confirm_col1, confirm_col2 = st.columns(2)
         with confirm_col1:
             if st.button("হ্যাঁ, সব মুছে ফেলুন", type="primary", use_container_width=True):
-                try:
-                    db.clear_all_data()
-                    st.success("✅ সমস্ত ডেটা সফলভাবে মুছে ফেলা হয়েছে")
-                    st.session_state.confirm_delete_all = False
-                    st.rerun()
-                except Exception as e:
-                    logger.error(f"Clear data error: {str(e)}")
-                    st.error(f"❌ ডেটা মুছে ফেলার সময় সমস্যা হয়েছে: {str(e)}")
-
+                db.clear_all_data()
+                st.success("✅ সমস্ত ডেটা সফলভাবে মুছে ফেলা হয়েছে")
+                st.session_state.confirm_delete_all = False
+                st.rerun()
         with confirm_col2:
             if st.button("না, বাতিল করুন", type="secondary", use_container_width=True):
                 st.session_state.confirm_delete_all = False
                 st.rerun()
 
-    # Batch selection
+    # --- Batch and File Selection ---
     with col1:
-        batch_col1, batch_col2 = st.columns([4, 1])
-        with batch_col1:
-            selected_batch = st.selectbox(
-                "ব্যাচ নির্বাচন করুন",
-                options=[batch['name'] for batch in batches],
-                format_func=lambda x: f"ব্যাচ: {x}"
-            )
-        with batch_col2:
-            if st.button("🗑️ ব্যাচ মুছুন", key="delete_batch"):
-                st.session_state.confirm_delete_batch = selected_batch
-
-    # Show confirmation for batch deletion
-    if st.session_state.confirm_delete_batch:
-        st.warning(f"""
-        ⚠️ সতর্কতা!
-        আপনি কি নিশ্চিত যে আপনি '{st.session_state.confirm_delete_batch}' ব্যাচ মুছে ফেলতে চান?
-        এর সাথে সম্পর্কিত সমস্ত ফাইল এবং রেকর্ড মুছে যাবে।
-        """)
-
-        batch_confirm_col1, batch_confirm_col2 = st.columns(2)
-        with batch_confirm_col1:
-            if st.button("হ্যাঁ, ব্যাচ মুছুন", type="primary", use_container_width=True):
-                try:
-                    batch_id = next(batch['id'] for batch in batches if batch['name'] == st.session_state.confirm_delete_batch)
-                    db.delete_batch(batch_id)
-                    st.success(f"✅ ব্যাচ '{st.session_state.confirm_delete_batch}' সফলভাবে মুছে ফেলা হয়েছে")
-                    st.session_state.confirm_delete_batch = None
-                    st.rerun()
-                except Exception as e:
-                    logger.error(f"Delete batch error: {str(e)}")
-                    st.error(f"❌ ব্যাচ মুছে ফেলার সময় সমস্যা হয়েছে: {str(e)}")
-
-        with batch_confirm_col2:
-            if st.button("না, বাতিল করুন", type="secondary", use_container_width=True):
-                st.session_state.confirm_delete_batch = None
-                st.rerun()
-
-    # Get selected batch details
-    selected_batch_id = next(batch['id'] for batch in batches if batch['name'] == selected_batch)
-
-    # Get files for selected batch
+        selected_batch_name = st.selectbox(
+            "ব্যাচ নির্বাচন করুন",
+            options=[batch['name'] for batch in batches],
+            format_func=lambda x: f"ব্যাচ: {x}"
+        )
+    
+    selected_batch_id = next(b['id'] for b in batches if b['name'] == selected_batch_name)
     files = db.get_batch_files(selected_batch_id)
 
-    if files:
-        file_col1, file_col2 = st.columns([4, 1])
-        with file_col1:
-            selected_file = st.selectbox(
-                "ফাইল নির্বাচন করুন",
-                options=['সব'] + [file['file_name'] for file in files],
-                format_func=lambda x: f"ফাইল: {x}" if x != 'সব' else "সব ফাইল দেখুন"
-            )
-        with file_col2:
-            if selected_file != 'সব' and st.button("🗑️ ফাইল মুছুন"):
-                st.session_state.confirm_delete_file = selected_file
-
-        # Show confirmation for file deletion
-        if st.session_state.confirm_delete_file:
-            st.warning(f"""
-            ⚠️ সতর্কতা!
-            আপনি কি নিশ্চিত যে আপনি '{st.session_state.confirm_delete_file}' ফাইল মুছে ফেলতে চান?
-            এর সাথে সম্পর্কিত সমস্ত রেকর্ড মুছে যাবে।
-            """)
-
-            file_confirm_col1, file_confirm_col2 = st.columns(2)
-            with file_confirm_col1:
-                if st.button("হ্যাঁ, ফাইল মুছুন", type="primary", use_container_width=True):
-                    try:
-                        db.delete_file(selected_batch_id, st.session_state.confirm_delete_file)
-                        st.success(f"✅ ফাইল '{st.session_state.confirm_delete_file}' সফলভাবে মুছে ফেলা হয়েছে")
-                        st.session_state.confirm_delete_file = None
-                        st.rerun()
-                    except Exception as e:
-                        logger.error(f"Delete file error: {str(e)}")
-                        st.error(f"❌ ফাইল মুছে ফেলার সময় সমস্যা হয়েছে: {str(e)}")
-
-            with file_confirm_col2:
-                if st.button("না, বাতিল করুন", type="secondary", use_container_width=True):
-                    st.session_state.confirm_delete_file = None
-                    st.rerun()
-
-        # Get records based on selection
-        if selected_file == 'সব':
-            records = db.get_batch_records(selected_batch_id)
-        else:
-            records = db.get_file_records(selected_batch_id, selected_file)
-
-        if records:
-            # Convert records to DataFrame
-            df = pd.DataFrame(records)
-
-            # Show total count
-            st.write(f"মোট রেকর্ড: {len(records)}")
-
-            # Create editable dataframe
-            edited_df = st.data_editor(
-                df[[
-                    'ক্রমিক_নং', 'নাম', 'ভোটার_নং', 'পিতার_নাম',
-                    'মাতার_নাম', 'পেশা', 'ঠিকানা', 'জন্ম_তারিখ', 
-                    'phone_number', 'facebook_link', 'photo_link', 'description',
-                    'relationship_status'
-                ]],
-                column_config={
-                    'ক্রমিক_নং': st.column_config.TextColumn('ক্রমিক নং'),
-                    'নাম': st.column_config.TextColumn('নাম'),
-                    'ভোটার_নং': st.column_config.TextColumn('ভোটার নং'),
-                    'পিতার_নাম': st.column_config.TextColumn('পিতার নাম'),
-                    'মাতার_নাম': st.column_config.TextColumn('মাতার নাম'),
-                    'পেশা': st.column_config.TextColumn('পেশা'),
-                    'ঠিকানা': st.column_config.TextColumn('ঠিকানা'),
-                    'জন্ম_তারিখ': st.column_config.TextColumn('জন্ম তারিখ'),
-                    'phone_number': st.column_config.TextColumn('ফোন নম্বর'),
-                    'facebook_link': st.column_config.LinkColumn('ফেসবুক লিঙ্ক'),
-                    'photo_link': st.column_config.TextColumn(
-                        'ছবি লিঙ্ক',
-                        help="Enter the URL of the image",
-                        validate="^https?://.*$"
-                    ),
-                    'description': st.column_config.TextColumn('বিবরণ'),
-                    'relationship_status': st.column_config.SelectboxColumn(
-                        'সম্পর্কের ধরণ',
-                        options=['Regular', 'Friend', 'Enemy', 'Connected'],
-                        required=True,
-                        default='Regular'
-                    )
-                },
-                hide_index=True,
-                use_container_width=True,
-                key="data_editor"
-            )
-
-            # Update button
-            if st.button("পরিবর্তনগুলি সংরক্ষণ করুন", type="primary"):
-                try:
-                    # Compare and update changed records
-                    changes = edited_df.compare(df[[
-                        'ক্রমিক_নং', 'নাম', 'ভোটার_নং', 'পিতার_নাম',
-                        'মাতার_নাম', 'পেশা', 'ঠিকানা', 'জন্ম_তারিখ',
-                        'phone_number', 'facebook_link', 'photo_link', 'description',
-                        'relationship_status'
-                    ]])
-
-                    if not changes.empty:
-                        for idx in changes.index:
-                            record_id = int(df.iloc[idx]['id'])
-                            row_data = edited_df.iloc[idx]
-                            updated_data = {
-                                'ক্রমিক_নং': str(row_data['ক্রমিক_নং']) if pd.notnull(row_data['ক্রমিক_নং']) else '',
-                                'নাম': str(row_data['নাম']) if pd.notnull(row_data['নাম']) else '',
-                                'ভোটার_নং': str(row_data['ভোটার_নং']) if pd.notnull(row_data['ভোটার_নং']) else '',
-                                'পিতার_নাম': str(row_data['পিতার_নাম']) if pd.notnull(row_data['পিতার_নাম']) else '',
-                                'মাতার_নাম': str(row_data['মাতার_নাম']) if pd.notnull(row_data['মাতার_নাম']) else '',
-                                'পেশা': str(row_data['পেশা']) if pd.notnull(row_data['পেশা']) else '',
-                                'ঠিকানা': str(row_data['ঠিকানা']) if pd.notnull(row_data['ঠিকানা']) else '',
-                                'জন্ম_তারিখ': str(row_data['জন্ম_তারিখ']) if pd.notnull(row_data['জন্ম_তারিখ']) else '',
-                                'phone_number': str(row_data['phone_number']) if pd.notnull(row_data['phone_number']) else '',
-                                'facebook_link': str(row_data['facebook_link']) if pd.notnull(row_data['facebook_link']) else '',
-                                'photo_link': str(row_data['photo_link']) if pd.notnull(row_data['photo_link']) else '',
-                                'description': str(row_data['description']) if pd.notnull(row_data['description']) else '',
-                                'relationship_status': str(row_data['relationship_status']) if pd.notnull(row_data['relationship_status']) else ''
-                            }
-                            db.update_record(record_id, updated_data)
-
-                        st.success("পরিবর্তনগুলি সফলভাবে সংরক্ষিত হয়েছে!")
-                        st.rerun()
-                except Exception as e:
-                    logger.error(f"Update error: {str(e)}")
-                    st.error(f"পরিবর্তন সংরক্ষণে সমস্যা হয়েছে: {str(e)}")
-        else:
-            st.info("কোন রেকর্ড পাওয়া যায়নি")
-    else:
+    if not files:
         st.info("এই ব্যাচে কোন ফাইল নেই")
+        return
+        
+    selected_file_name = st.selectbox(
+        "ফাইল নির্বাচন করুন",
+        options=['সব'] + [file['file_name'] for file in files],
+        format_func=lambda x: f"ফাইল: {x}" if x != 'সব' else "সব ফাইল দেখুন"
+    )
+
+    # --- Data Display and Editing ---
+    if selected_file_name == 'সব':
+        records = db.get_batch_records(selected_batch_id)
+    else:
+        records = db.get_file_records(selected_batch_id, selected_file_name)
+
+    if records:
+        df = pd.DataFrame(records)
+        st.write(f"মোট রেকর্ড: {len(records)}")
+
+        # Keep original df in session state for comparison
+        st.session_state.original_df = df.copy()
+
+        edited_df = st.data_editor(
+            df,
+            column_config={
+                'id': None, 'batch_id': None, 'file_name': None, 'created_at': None, 'batch_name': None,
+                'ক্রমিক_নং': st.column_config.TextColumn('ক্রমিক নং', width="small"),
+                'নাম': st.column_config.TextColumn('নাম', width="medium"),
+                'ভোটার_নং': st.column_config.TextColumn('ভোটার নং', width="medium"),
+                'পিতার_নাম': st.column_config.TextColumn('পিতার নাম', width="medium"),
+                'মাতার_নাম': st.column_config.TextColumn('মাতার নাম', width="medium"),
+                'পেশা': st.column_config.TextColumn('পেশা'),
+                'ঠিকানা': st.column_config.TextColumn('ঠিকানা', width="large"),
+                'জন্ম_তারিখ': st.column_config.TextColumn('জন্ম তারিখ'),
+                'phone_number': st.column_config.TextColumn('ফোন নম্বর'),
+                'facebook_link': st.column_config.LinkColumn('ফেসবুক লিঙ্ক'),
+                'photo_link': st.column_config.ImageColumn('ছবি', help="ছবির লিঙ্ক দিন"),
+                'description': st.column_config.TextColumn('বিবরণ'),
+                'relationship_status': st.column_config.SelectboxColumn(
+                    'সম্পর্কের ধরণ', options=['Regular', 'Friend', 'Enemy', 'Connected'], required=True
+                ),
+                'events': st.column_config.ListColumn('ইভেন্টস', help="এই রেকর্ডের জন্য নির্ধারিত ইভেন্ট")
+            },
+            hide_index=True,
+            use_container_width=True,
+            key="data_editor"
+        )
+
+        if st.button("রেকর্ডের পরিবর্তনগুলি সংরক্ষণ করুন", type="primary"):
+            try:
+                original_df = st.session_state.original_df
+                # Compare only editable columns
+                editable_cols = [
+                    'ক্রমিক_নং', 'নাম', 'ভোটার_নং', 'পিতার_নাম', 'মাতার_নাম', 'পেশা', 
+                    'ঠিকানা', 'জন্ম_তারিখ', 'phone_number', 'facebook_link', 
+                    'photo_link', 'description', 'relationship_status'
+                ]
+                changes = edited_df[editable_cols].compare(original_df[editable_cols])
+                
+                if not changes.empty:
+                    updated_count = 0
+                    for idx in changes.index:
+                        record_id = int(original_df.loc[idx, 'id'])
+                        updated_data = edited_df.loc[idx].to_dict()
+                        db.update_record(record_id, updated_data)
+                        updated_count += 1
+                    st.success(f"{updated_count} টি রেকর্ডের পরিবর্তন সফলভাবে সংরক্ষিত হয়েছে!")
+                    st.rerun()
+                else:
+                    st.info("কোনো পরিবর্তন সনাক্ত করা যায়নি।")
+            except Exception as e:
+                logger.error(f"Update error: {str(e)}")
+                st.error(f"পরিবর্তন সংরক্ষণে সমস্যা হয়েছে: {str(e)}")
+    else:
+        st.info("কোন রেকর্ড পাওয়া যায়নি")
+
+    # --- Assign Events Section ---
+    st.markdown("---")
+    st.subheader("👥 রেকর্ডে ইভেন্ট নির্ধারণ করুন")
+
+    if records:
+        all_events = db.get_all_events()
+        event_map = {event['name']: event['id'] for event in all_events}
+        
+        # Let user select a record from the displayed list
+        record_options = {f"{rec['ক্রমিক_নং']}: {rec['নাম']}": rec['id'] for rec in records}
+        selected_record_display = st.selectbox(
+            "রেকর্ড নির্বাচন করুন",
+            options=record_options.keys()
+        )
+
+        if selected_record_display:
+            selected_record_id = record_options[selected_record_display]
+            
+            # Get currently assigned events for the selected record
+            assigned_events_names = db.get_events_for_record(selected_record_id)
+
+            # Multiselect for choosing events
+            selected_events = st.multiselect(
+                "নির্ধারণ করার জন্য ইভেন্ট নির্বাচন করুন",
+                options=event_map.keys(),
+                default=assigned_events_names
+            )
+
+            if st.button("ইভেন্ট আপডেট করুন", type="primary"):
+                try:
+                    selected_event_ids = [event_map[name] for name in selected_events]
+                    db.assign_events_to_record(selected_record_id, selected_event_ids)
+                    st.success(f"রেকর্ড '{selected_record_display}' এর জন্য ইভেন্ট সফলভাবে আপডেট করা হয়েছে।")
+                    st.rerun()
+                except Exception as e:
+                    logger.error(f"Event assignment error: {e}")
+                    st.error("ইভেন্ট নির্ধারণের সময় একটি সমস্যা হয়েছে।")
 
 if __name__ == "__main__":
     all_data_page()
