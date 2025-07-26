@@ -40,6 +40,7 @@ def display_result_card(result, db):
             st.markdown(f"**পেশা:** {result.get('পেশা', 'N/A')}")
             st.markdown(f"**জন্ম তারিখ:** {result.get('জন্ম_তারিখ', 'N/A')}")
             st.markdown(f"**ঠিকানা:** {result.get('ঠিকানা', 'N/A')}")
+            st.markdown(f"**লিঙ্গ:** {result.get('gender', 'N/A')}") # Display gender
 
         st.markdown("---")
 
@@ -80,6 +81,7 @@ def search_page():
             fathers_name = st.text_input("পিতার নাম")
             occupation = st.text_input("পেশা")
             address = st.text_input("ঠিকানা")
+            gender = st.selectbox("লিঙ্গ", options=['সব', 'Male', 'Female', 'Other']) # Gender search filter
             
     # Search button
     if st.button("অনুসন্ধান করুন", type="primary", use_container_width=True):
@@ -93,12 +95,13 @@ def search_page():
                     'মাতার_নাম': mothers_name,
                     'পেশা': occupation,
                     'ঠিকানা': address,
-                    'জন্ম_তারিখ': date_of_birth
+                    'জন্ম_তারিখ': date_of_birth,
+                    'gender': gender # Include gender in search criteria
                 }
-                # Remove empty criteria to avoid searching on empty strings
-                search_criteria = {k: v for k, v in search_criteria.items() if v}
+                # Remove empty criteria to avoid searching on empty strings, but keep 'gender' if 'সব' is selected
+                search_criteria = {k: v for k, v in search_criteria.items() if v or k == 'gender'}
                 
-                if not search_criteria:
+                if not search_criteria or (len(search_criteria) == 1 and 'gender' in search_criteria and search_criteria['gender'] == 'সব'):
                     st.warning("অনুসন্ধানের জন্য অন্তত একটি ফিল্টার পূরণ করুন।")
                     return
 
