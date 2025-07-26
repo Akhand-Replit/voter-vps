@@ -36,6 +36,9 @@ def upload_page():
 
     if uploaded_files and batch_name:
         if st.button("আপলোড করুন", type="primary"):
+            total_records_processed = 0
+            total_records_added_to_db = 0
+
             try:
                 with st.spinner("প্রক্রিয়াকরণ চলছে..."):
                     # Check if batch already exists
@@ -48,31 +51,34 @@ def upload_page():
                         batch_id = db.add_batch(batch_name)
                         st.success(f"নতুন ব্যাচ '{batch_name}' তৈরি করা হয়েছে")
 
-                    total_records_processed = 0 # Track records processed by data_processor
-                    total_records_added_to_db = 0 # Track records successfully added to DB
-
                     for uploaded_file in uploaded_files:
-                        content = uploaded_file.read().decode('utf-8')
-                        # Pass the selected_gender to the data processor
-                        records = process_text_file(content, default_gender=selected_gender if selected_gender else None)
-                        total_records_processed += len(records)
+                        try:
+                            content = uploaded_file.read().decode('utf-8')
+                            records = process_text_file(content, default_gender=selected_gender if selected_gender else None)
+                            total_records_processed += len(records)
 
-                        # Store records in database
-                        for record in records:
-                            try:
+                            for record in records:
                                 db.add_record(batch_id, uploaded_file.name, record)
                                 total_records_added_to_db += 1
-                            except Exception as record_e:
-                                logger.error(f"Failed to add record to DB: {record_e} - Data: {record}")
-                                st.error(f"রেকর্ড যোগ করতে ব্যর্থ: {record_e}. কিছু রেকর্ড ডাটাবেসে যোগ করা যায়নি।")
-                                # Continue processing other records even if one fails
+                            
+                            # Commit changes for each file after all its records are processed
+                            db.conn.commit()
+                            logger.info(f"Successfully committed records for file: {uploaded_file.name}")
 
-                    if total_records_added_to_db > 0:
-                        st.success(f"সফলভাবে {len(uploaded_files)} টি ফাইল এবং {total_records_added_to_db} টি রেকর্ড ডাটাবেসে আপলোড করা হয়েছে!")
-                    else:
-                        st.warning("কোনো রেকর্ড ডাটাবেসে যোগ করা যায়নি। ফাইল ফরম্যাট বা ডাটাবেস স্কিমা পরীক্ষা করুন।")
+                        except Exception as file_e:
+                            db.conn.rollback() # Rollback changes for the current file if an error occurs
+                            logger.error(f"Failed to process and add records for file {uploaded_file.name}: {file_e}")
+                            st.error(f"ফাইল '{uploaded_file.name}' প্রক্রিয়াকরণ এবং যোগ করতে ব্যর্থ: {file_e}. এই ফাইলের কোনো রেকর্ড যোগ করা হয়নি।")
+                            # Continue to next file
+                            
+                if total_records_added_to_db > 0:
+                    st.success(f"সফলভাবে {len(uploaded_files)} টি ফাইল থেকে {total_records_added_to_db} টি রেকর্ড ডাটাবেসে আপলোড করা হয়েছে!")
+                    st.markdown(f"**মোট রেকর্ড:** {db.get_total_records_count()}") # Display total count
+                else:
+                    st.warning("কোনো রেকর্ড ডাটাবেসে যোগ করা যায়নি। ফাইল ফরম্যাট বা ডাটাবেস স্কিমা পরীক্ষা করুন।")
 
             except Exception as e:
+                db.conn.rollback() # Ensure rollback for any top-level errors
                 logger.error(f"Upload process failed: {str(e)}")
                 st.error(f"আপলোড প্রক্রিয়া ব্যর্থ হয়েছে: {str(e)}")
 
