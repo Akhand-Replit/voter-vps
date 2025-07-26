@@ -5,7 +5,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def process_text_file(content):
+def process_text_file(content, default_gender=None):
     """Process the text file content and extract structured data."""
     records = []
 
@@ -34,18 +34,23 @@ def process_text_file(content):
                 'মাতার_নাম': (r'মাতা:?\s*([^,\n।]+)', False),
                 'পেশা': (r'পেশা:?\s*([^,।\n]+)', False),
                 'জন্ম_তারিখ': (r'জন্ম\s*তারিখ:?\s*([^,\n।]+)', False),
-                'ঠিকানা': (r'ঠিকানা:?\s*([^,\n।]+(?:[,\n।][^,\n।]+)*)', False)
+                'ঠিকানা': (r'ঠিকানা:?\s*([^,\n।]+(?:[,\n।][^,\n।]+)*)', False),
+                'gender': (r'লিঙ্গ:?\s*(পুরুষ|মহিলা|অন্যান্য|Male|Female|Other)', False) # Added gender pattern
             }
 
             # Extract each field
             for field, (pattern, full_match) in field_patterns.items():
-                match = re.search(pattern, record, re.MULTILINE)
+                match = re.search(pattern, record, re.MULTILINE | re.IGNORECASE) # Ignore case for gender
                 if match:
                     # For ক্রমিক_নং, take the full match and remove the dot
                     value = match.group(0).strip() if full_match else match.group(1).strip()
                     if field == 'ক্রমিক_নং':
                         value = value.rstrip('.')
                     record_dict[field] = value.strip()
+            
+            # If gender not found in text, use default_gender
+            if 'gender' not in record_dict and default_gender:
+                record_dict['gender'] = default_gender
 
             # Only add records that have at least a few key fields
             required_fields = {'ক্রমিক_নং', 'নাম', 'ভোটার_নং'}
