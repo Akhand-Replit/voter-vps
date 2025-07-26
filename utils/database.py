@@ -41,6 +41,7 @@ class Database:
             """)
 
             # Records Table: Stores the main data records.
+            # Added 'gender' column
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS records (
                     id SERIAL PRIMARY KEY,
@@ -59,6 +60,7 @@ class Database:
                     photo_link TEXT,
                     description TEXT,
                     relationship_status VARCHAR(20) DEFAULT 'Regular',
+                    gender VARCHAR(10), -- Added gender column
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -102,6 +104,11 @@ class Database:
             cur.execute("SELECT relationship_status, COUNT(*) as count FROM records GROUP BY relationship_status")
             relationship_counts = cur.fetchall()
             stats['relationships'] = {item['relationship_status']: item['count'] for item in relationship_counts}
+
+            # Gender counts
+            cur.execute("SELECT gender, COUNT(*) as count FROM records WHERE gender IS NOT NULL AND gender != '' GROUP BY gender")
+            gender_counts = cur.fetchall()
+            stats['genders'] = {item['gender']: item['count'] for item in gender_counts}
 
         return stats
 
@@ -183,8 +190,8 @@ class Database:
                     batch_id, file_name, ক্রমিক_নং, নাম, ভোটার_নং,
                     পিতার_নাম, মাতার_নাম, পেশা, জন্ম_তারিখ, ঠিকানা,
                     phone_number, facebook_link, photo_link, description,
-                    relationship_status
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    relationship_status, gender -- Added gender here
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 batch_id, file_name,
                 record_data.get('ক্রমিক_নং'), record_data.get('নাম'),
@@ -193,7 +200,8 @@ class Database:
                 record_data.get('জন্ম_তারিখ'), record_data.get('ঠিকানা'),
                 record_data.get('phone_number'), record_data.get('facebook_link'),
                 record_data.get('photo_link'), record_data.get('description'),
-                'Regular'
+                record_data.get('relationship_status', 'Regular'), # Default to 'Regular' if not provided
+                record_data.get('gender') # Added gender here
             ))
             self.conn.commit()
 
@@ -205,7 +213,8 @@ class Database:
                     ক্রমিক_নং = %s, নাম = %s, ভোটার_নং = %s, পিতার_নাম = %s,
                     মাতার_নাম = %s, পেশা = %s, ঠিকানা = %s, জন্ম_তারিখ = %s,
                     phone_number = %s, facebook_link = %s, photo_link = %s,
-                    description = %s, relationship_status = %s
+                    description = %s, relationship_status = %s,
+                    gender = %s -- Added gender here
                 WHERE id = %s
             """
             values = (
@@ -215,7 +224,9 @@ class Database:
                 str(updated_data.get('ঠিকানা', '')), str(updated_data.get('জন্ম_তারিখ', '')),
                 str(updated_data.get('phone_number', '')), str(updated_data.get('facebook_link', '')),
                 str(updated_data.get('photo_link', '')), str(updated_data.get('description', '')),
-                str(updated_data.get('relationship_status', 'Regular')), record_id
+                str(updated_data.get('relationship_status', 'Regular')),
+                str(updated_data.get('gender', '')), # Added gender here
+                record_id
             )
             cur.execute(query, values)
             self.conn.commit()
@@ -227,8 +238,13 @@ class Database:
             params = []
             for field, value in criteria.items():
                 if value:
-                    query += f" AND {field} ILIKE %s"
-                    params.append(f"%{value}%")
+                    # Special handling for 'gender' to allow exact match or 'সব' for all
+                    if field == 'gender' and value != 'সব':
+                        query += f" AND {field} = %s"
+                        params.append(value)
+                    elif field != 'gender': # For other fields, use ILIKE
+                        query += f" AND {field} ILIKE %s"
+                        params.append(f"%{value}%")
             query += " ORDER BY r.id"
             cur.execute(query, params)
             records = cur.fetchall()
@@ -303,6 +319,23 @@ class Database:
                 WHERE পেশা IS NOT NULL AND পেশা != ''
                 GROUP BY পেশা ORDER BY count DESC
             """)
+            return cur.fetchall()
+
+    def get_gender_stats(self, batch_id=None):
+        """Retrieves gender statistics for a specific batch or all batches."""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            query = """
+                SELECT gender, COUNT(*) as count
+                FROM records
+                WHERE gender IS NOT NULL AND gender != ''
+            """
+            if batch_id:
+                query += " AND batch_id = %s"
+                params = (batch_id,)
+            else:
+                params = ()
+            query += " GROUP BY gender ORDER BY count DESC"
+            cur.execute(query, params)
             return cur.fetchall()
 
     def update_relationship_status(self, record_id: int, status: str):
