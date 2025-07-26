@@ -79,6 +79,9 @@ def all_data_page():
                 'relationship_status': st.column_config.SelectboxColumn(
                     'সম্পর্কের ধরণ', options=['Regular', 'Friend', 'Enemy', 'Connected'], required=True
                 ),
+                'gender': st.column_config.SelectboxColumn( # Added gender column config
+                    'লিঙ্গ', options=['Male', 'Female', 'Other', ''], required=False # Allow empty string for not specified
+                ),
                 'events': st.column_config.ListColumn('নির্ধারিত ইভেন্টস', help="এই রেকর্ডের জন্য নির্ধারিত ইভেন্ট (s)", width="medium")
             },
             hide_index=True,
@@ -96,7 +99,7 @@ def all_data_page():
                     editable_cols = [
                         'ক্রমিক_নং', 'নাম', 'ভোটার_নং', 'পিতার_নাম', 'মাতার_নাম', 'পেশা', 
                         'ঠিকানা', 'জন্ম_তারিখ', 'phone_number', 'facebook_link', 
-                        'photo_link', 'description', 'relationship_status'
+                        'photo_link', 'description', 'relationship_status', 'gender' # Added gender here
                     ]
                     changes = edited_df[editable_cols].compare(original_df[editable_cols])
                     
