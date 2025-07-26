@@ -20,6 +20,13 @@ def upload_page():
     # Batch name input
     batch_name = st.text_input("ব্যাচের নাম", placeholder="ব্যাচের নাম লিখুন")
 
+    # Gender selection for uploaded files
+    selected_gender = st.selectbox(
+        "লিঙ্গ নির্বাচন করুন (যদি ফাইলে উল্লেখ না থাকে)",
+        options=['', 'Male', 'Female', 'Other'], # Empty string for 'not specified'
+        format_func=lambda x: x if x else "নির্বাচন করুন"
+    )
+
     # File upload
     uploaded_files = st.file_uploader(
         "টেক্সট ফাইল আপলোড করুন",
@@ -44,7 +51,8 @@ def upload_page():
                     total_records = 0
                     for uploaded_file in uploaded_files:
                         content = uploaded_file.read().decode('utf-8')
-                        records = process_text_file(content)
+                        # Pass the selected_gender to the data processor
+                        records = process_text_file(content, default_gender=selected_gender if selected_gender else None)
 
                         # Store records in database
                         for record in records:
