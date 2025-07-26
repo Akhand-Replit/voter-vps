@@ -63,7 +63,7 @@ def event_filter_page():
                         display_columns = [
                             'ক্রমিক_নং', 'নাম', 'ভোটার_নং', 'পিতার_নাম', 'মাতার_নাম', 
                             'পেশা', 'ঠিকানা', 'জন্ম_তারিখ', 'phone_number', 
-                            'facebook_link', 'relationship_status', 'batch_name'
+                            'facebook_link', 'relationship_status', 'gender', 'batch_name' # Added gender
                         ]
                         
                         # Ensure only existing columns are selected to prevent errors
