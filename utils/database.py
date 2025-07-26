@@ -22,6 +22,8 @@ class Database:
                 host=st.secrets["DB_HOST"],
                 port=st.secrets["DB_PORT"],
             )
+            # Ensure auto-commit is off to manage transactions manually
+            self.conn.autocommit = False 
             self.create_tables()
         except psycopg2.OperationalError as e:
             logger.error(f"Database connection failed: {e}")
@@ -29,13 +31,24 @@ class Database:
             raise Exception("Failed to connect to database.")
 
     def create_tables(self):
-        """Creates all necessary tables if they do not already exist."""
+        """
+        Creates all necessary tables if they do not already exist.
+        Includes dropping tables for development purposes to ensure schema updates.
+        """
         with self.conn.cursor() as cur:
+            # --- For Development: Drop tables to ensure fresh schema ---
+            # In a production environment, you would use ALTER TABLE statements for schema migrations
+            cur.execute("DROP TABLE IF EXISTS record_events CASCADE")
+            cur.execute("DROP TABLE IF EXISTS records CASCADE")
+            cur.execute("DROP TABLE IF EXISTS events CASCADE")
+            cur.execute("DROP TABLE IF EXISTS batches CASCADE")
+            self.conn.commit() # Commit drops immediately
+
             # Batches Table: Stores information about data batches.
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS batches (
+                CREATE TABLE batches (
                     id SERIAL PRIMARY KEY,
-                    name VARCHAR(255) UNIQUE NOT NULL,
+                    name VARCHAR(255) UNIQUE NOT NULL, -- Ensure UNIQUE constraint is applied
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -43,7 +56,7 @@ class Database:
             # Records Table: Stores the main data records.
             # Added 'gender' column
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS records (
+                CREATE TABLE records (
                     id SERIAL PRIMARY KEY,
                     batch_id INTEGER REFERENCES batches(id) ON DELETE CASCADE,
                     file_name VARCHAR(255),
@@ -67,7 +80,7 @@ class Database:
 
             # Events Table: Stores event information.
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS events (
+                CREATE TABLE events (
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(255) UNIQUE NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -76,7 +89,7 @@ class Database:
 
             # Record-Events Junction Table: Manages the many-to-many relationship between records and events.
             cur.execute("""
-                CREATE TABLE IF NOT EXISTS record_events (
+                CREATE TABLE record_events (
                     record_id INTEGER REFERENCES records(id) ON DELETE CASCADE,
                     event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
                     PRIMARY KEY (record_id, event_id)
