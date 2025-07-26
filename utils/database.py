@@ -196,35 +196,32 @@ class Database:
             return result['id']
 
     def add_record(self, batch_id, file_name, record_data):
-        """Adds a new record to the database."""
-        try:
-            with self.conn.cursor() as cur:
-                logger.info(f"Attempting to insert record: {record_data}") # Log the data before insert
-                cur.execute("""
-                    INSERT INTO records (
-                        batch_id, file_name, ক্রমিক_নং, নাম, ভোটার_নং,
-                        পিতার_নাম, মাতার_নাম, পেশা, জন্ম_তারিখ, ঠিকানা,
-                        phone_number, facebook_link, photo_link, description,
-                        relationship_status, gender
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    batch_id, file_name,
-                    record_data.get('ক্রমিক_নং'), record_data.get('নাম'),
-                    record_data.get('ভোটার_নং'), record_data.get('পিতার_নাম'),
-                    record_data.get('মাতার_নাম'), record_data.get('পেশা'),
-                    record_data.get('জন্ম_তারিখ'), record_data.get('ঠিকানা'),
-                    record_data.get('phone_number'), record_data.get('facebook_link'),
-                    record_data.get('photo_link'), record_data.get('description'),
-                    record_data.get('relationship_status', 'Regular'),
-                    record_data.get('gender')
-                ))
-                self.conn.commit()
-                logger.info("Record inserted successfully.")
-        except psycopg2.Error as e:
-            logger.error(f"Database insertion error for record {record_data.get('ক্রমিক_নং', 'N/A')}: {e}")
-            # Rollback the transaction on error to prevent InFailedSqlTransaction
-            self.conn.rollback() 
-            raise # Re-raise the exception to be caught by the Streamlit page
+        """
+        Adds a new record to the database.
+        Note: This function no longer commits the transaction.
+        The calling function (e.g., in upload_page) is responsible for committing.
+        """
+        with self.conn.cursor() as cur:
+            # logger.info(f"Attempting to insert record: {record_data}") # Keep this for debugging if needed
+            cur.execute("""
+                INSERT INTO records (
+                    batch_id, file_name, ক্রমিক_নং, নাম, ভোটার_নং,
+                    পিতার_নাম, মাতার_নাম, পেশা, জন্ম_তারিখ, ঠিকানা,
+                    phone_number, facebook_link, photo_link, description,
+                    relationship_status, gender
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                batch_id, file_name,
+                record_data.get('ক্রমিক_নং'), record_data.get('নাম'),
+                record_data.get('ভোটার_নং'), record_data.get('পিতার_নাম'),
+                record_data.get('মাতার_নাম'), record_data.get('পেশা'),
+                record_data.get('জন্ম_তারিখ'), record_data.get('ঠিকানা'),
+                record_data.get('phone_number'), record_data.get('facebook_link'),
+                record_data.get('photo_link'), record_data.get('description'),
+                record_data.get('relationship_status', 'Regular'),
+                record_data.get('gender')
+            ))
+            # logger.info("Record prepared for insertion.") # Log that it's ready, not yet committed
 
     def update_record(self, record_id, updated_data):
         """Updates an existing record with new data."""
@@ -326,7 +323,7 @@ class Database:
             cur.execute("""
                 SELECT পেশা, COUNT(*) as count
                 FROM records
-                WHERE batch_id = %s AND পেশা IS NOT NULL AND পেশা != ''
+                WHERE batch_id = %s AND পেশা IS NOT NULL AND পেশa != ''
                 GROUP BY পেশা ORDER BY count DESC
             """, (batch_id,))
             return cur.fetchall()
@@ -398,3 +395,9 @@ class Database:
             cur.execute("DELETE FROM records WHERE batch_id = %s", (batch_id,))
             cur.execute("DELETE FROM batches WHERE id = %s", (batch_id,))
             self.conn.commit()
+
+    def get_total_records_count(self):
+        """Retrieves the total number of records in the database."""
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM records")
+            return cur.fetchone()[0]
