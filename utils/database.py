@@ -198,8 +198,8 @@ class Database:
     def add_record(self, batch_id, file_name, record_data):
         """
         Adds a new record to the database.
-        Note: This function no longer commits the transaction.
-        The calling function (e.g., in upload_page) is responsible for committing.
+        This function only executes the INSERT statement; the calling function
+        is responsible for committing or rolling back the transaction.
         """
         with self.conn.cursor() as cur:
             # logger.info(f"Attempting to insert record: {record_data}") # Keep this for debugging if needed
@@ -222,6 +222,21 @@ class Database:
                 record_data.get('gender')
             ))
             # logger.info("Record prepared for insertion.") # Log that it's ready, not yet committed
+
+    def commit_changes(self):
+        """Commits the current database transaction."""
+        try:
+            self.conn.commit()
+            logger.info("Database changes committed successfully.")
+        except psycopg2.Error as e:
+            logger.error(f"Error committing transaction: {e}")
+            self.conn.rollback() # Rollback on commit failure
+            raise
+
+    def rollback_changes(self):
+        """Rolls back the current database transaction."""
+        self.conn.rollback()
+        logger.warning("Database transaction rolled back.")
 
     def update_record(self, record_id, updated_data):
         """Updates an existing record with new data."""
@@ -323,7 +338,7 @@ class Database:
             cur.execute("""
                 SELECT পেশা, COUNT(*) as count
                 FROM records
-                WHERE batch_id = %s AND পেশা IS NOT NULL AND পেশa != ''
+                WHERE batch_id = %s AND পেশা IS NOT NULL AND পেশা != ''
                 GROUP BY পেশা ORDER BY count DESC
             """, (batch_id,))
             return cur.fetchall()
