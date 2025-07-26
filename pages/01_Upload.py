@@ -51,6 +51,9 @@ def upload_page():
                         batch_id = db.add_batch(batch_name)
                         st.success(f"নতুন ব্যাচ '{batch_name}' তৈরি করা হয়েছে")
 
+                    # Start a single transaction for all files in this upload session
+                    # db.conn.autocommit is already False from __init__
+
                     for uploaded_file in uploaded_files:
                         try:
                             content = uploaded_file.read().decode('utf-8')
@@ -61,24 +64,25 @@ def upload_page():
                                 db.add_record(batch_id, uploaded_file.name, record)
                                 total_records_added_to_db += 1
                             
-                            # Commit changes for each file after all its records are processed
-                            db.conn.commit()
-                            logger.info(f"Successfully committed records for file: {uploaded_file.name}")
+                            logger.info(f"Records from file '{uploaded_file.name}' prepared for insertion.")
 
                         except Exception as file_e:
-                            db.conn.rollback() # Rollback changes for the current file if an error occurs
+                            # Log the error for this specific file but don't rollback the whole transaction yet
                             logger.error(f"Failed to process and add records for file {uploaded_file.name}: {file_e}")
                             st.error(f"ফাইল '{uploaded_file.name}' প্রক্রিয়াকরণ এবং যোগ করতে ব্যর্থ: {file_e}. এই ফাইলের কোনো রেকর্ড যোগ করা হয়নি।")
-                            # Continue to next file
-                            
+                            # Continue to next file, the overall transaction will be rolled back later if needed
+
+                # After processing all files, attempt to commit all changes
                 if total_records_added_to_db > 0:
+                    db.commit_changes() # Explicitly commit here
                     st.success(f"সফলভাবে {len(uploaded_files)} টি ফাইল থেকে {total_records_added_to_db} টি রেকর্ড ডাটাবেসে আপলোড করা হয়েছে!")
                     st.markdown(f"**মোট রেকর্ড:** {db.get_total_records_count()}") # Display total count
                 else:
                     st.warning("কোনো রেকর্ড ডাটাবেসে যোগ করা যায়নি। ফাইল ফরম্যাট বা ডাটাবেস স্কিমা পরীক্ষা করুন।")
+                    db.rollback_changes() # Rollback if no records were added (e.g., all skipped or failed)
 
             except Exception as e:
-                db.conn.rollback() # Ensure rollback for any top-level errors
+                db.rollback_changes() # Ensure rollback for any top-level errors
                 logger.error(f"Upload process failed: {str(e)}")
                 st.error(f"আপলোড প্রক্রিয়া ব্যর্থ হয়েছে: {str(e)}")
 
