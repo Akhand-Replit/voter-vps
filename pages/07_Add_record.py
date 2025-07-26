@@ -64,6 +64,14 @@ def add_record_page():
             occupation = st.text_input("পেশা", key="occupation")
             birth_date = st.text_input("জন্ম তারিখ", key="birth_date")
             address = st.text_area("ঠিকানা", key="address")
+        
+        # Gender selection
+        gender = st.selectbox(
+            "লিঙ্গ",
+            options=['', 'Male', 'Female', 'Other'], # Empty string for 'not specified'
+            format_func=lambda x: x if x else "নির্বাচন করুন",
+            key="gender_select"
+        )
 
         # Additional information
         st.subheader("অতিরিক্ত তথ্য")
@@ -90,7 +98,8 @@ def add_record_page():
                     'phone_number': phone,
                     'facebook_link': facebook,
                     'photo_link': photo,
-                    'description': description
+                    'description': description,
+                    'gender': gender if gender else None # Pass selected gender
                 }
 
                 # Add record to database
