@@ -197,26 +197,34 @@ class Database:
 
     def add_record(self, batch_id, file_name, record_data):
         """Adds a new record to the database."""
-        with self.conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO records (
-                    batch_id, file_name, ক্রমিক_নং, নাম, ভোটার_নং,
-                    পিতার_নাম, মাতার_নাম, পেশা, জন্ম_তারিখ, ঠিকানা,
-                    phone_number, facebook_link, photo_link, description,
-                    relationship_status, gender -- Added gender here
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                batch_id, file_name,
-                record_data.get('ক্রমিক_নং'), record_data.get('নাম'),
-                record_data.get('ভোটার_নং'), record_data.get('পিতার_নাম'),
-                record_data.get('মাতার_নাম'), record_data.get('পেশা'),
-                record_data.get('জন্ম_তারিখ'), record_data.get('ঠিকানা'),
-                record_data.get('phone_number'), record_data.get('facebook_link'),
-                record_data.get('photo_link'), record_data.get('description'),
-                record_data.get('relationship_status', 'Regular'), # Default to 'Regular' if not provided
-                record_data.get('gender') # Added gender here
-            ))
-            self.conn.commit()
+        try:
+            with self.conn.cursor() as cur:
+                logger.info(f"Attempting to insert record: {record_data}") # Log the data before insert
+                cur.execute("""
+                    INSERT INTO records (
+                        batch_id, file_name, ক্রমিক_নং, নাম, ভোটার_নং,
+                        পিতার_নাম, মাতার_নাম, পেশা, জন্ম_তারিখ, ঠিকানা,
+                        phone_number, facebook_link, photo_link, description,
+                        relationship_status, gender
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    batch_id, file_name,
+                    record_data.get('ক্রমিক_নং'), record_data.get('নাম'),
+                    record_data.get('ভোটার_নং'), record_data.get('পিতার_নাম'),
+                    record_data.get('মাতার_নাম'), record_data.get('পেশা'),
+                    record_data.get('জন্ম_তারিখ'), record_data.get('ঠিকানা'),
+                    record_data.get('phone_number'), record_data.get('facebook_link'),
+                    record_data.get('photo_link'), record_data.get('description'),
+                    record_data.get('relationship_status', 'Regular'),
+                    record_data.get('gender')
+                ))
+                self.conn.commit()
+                logger.info("Record inserted successfully.")
+        except psycopg2.Error as e:
+            logger.error(f"Database insertion error for record {record_data.get('ক্রমিক_নং', 'N/A')}: {e}")
+            # Rollback the transaction on error to prevent InFailedSqlTransaction
+            self.conn.rollback() 
+            raise # Re-raise the exception to be caught by the Streamlit page
 
     def update_record(self, record_id, updated_data):
         """Updates an existing record with new data."""
@@ -227,7 +235,7 @@ class Database:
                     মাতার_নাম = %s, পেশা = %s, ঠিকানা = %s, জন্ম_তারিখ = %s,
                     phone_number = %s, facebook_link = %s, photo_link = %s,
                     description = %s, relationship_status = %s,
-                    gender = %s -- Added gender here
+                    gender = %s
                 WHERE id = %s
             """
             values = (
@@ -238,7 +246,7 @@ class Database:
                 str(updated_data.get('phone_number', '')), str(updated_data.get('facebook_link', '')),
                 str(updated_data.get('photo_link', '')), str(updated_data.get('description', '')),
                 str(updated_data.get('relationship_status', 'Regular')),
-                str(updated_data.get('gender', '')), # Added gender here
+                str(updated_data.get('gender', '')),
                 record_id
             )
             cur.execute(query, values)
