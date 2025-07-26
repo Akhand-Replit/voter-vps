@@ -62,7 +62,7 @@ def upload_page():
                     st.success(f"সফলভাবে {len(uploaded_files)} টি ফাইল এবং {total_records} টি রেকর্ড আপলোড করা হয়েছে!")
 
             except Exception as e:
-                logger.error(f"Upload error: {str(e)}")
+                logger.error(f"Upload failed: {str(e)}")
                 st.error(f"আপলোড ব্যর্থ হয়েছে: {str(e)}")
 
     # Display existing batches
