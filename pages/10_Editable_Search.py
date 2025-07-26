@@ -33,6 +33,7 @@ def editable_search_page():
             voter_no = st.text_input("ভোটার নং")
             address = st.text_input("ঠিকানা")
             si_number = st.text_input("ক্রমিক নং")
+            gender_filter = st.selectbox("লিঙ্গ", options=['সব', 'Male', 'Female', 'Other']) # Gender search filter
 
     if st.button("🔍 অনুসন্ধান করুন", type="primary", use_container_width=True):
         search_criteria = {
@@ -42,11 +43,12 @@ def editable_search_page():
             'ভোটার_নং': voter_no,
             'ঠিকানা': address,
             'ক্রমিক_নং': si_number,
+            'gender': gender_filter # Include gender in search criteria
         }
-        # Remove empty criteria to search only with provided values
-        search_criteria = {k: v for k, v in search_criteria.items() if v}
+        # Remove empty criteria to search only with provided values, but keep 'gender' if 'সব' is selected
+        search_criteria = {k: v for k, v in search_criteria.items() if v or (k == 'gender' and v == 'সব')}
 
-        if not search_criteria:
+        if not search_criteria or (len(search_criteria) == 1 and 'gender' in search_criteria and search_criteria['gender'] == 'সব'):
             st.warning("অনুসন্ধানের জন্য অন্তত একটি ফিল্টার পূরণ করুন।")
             return
 
@@ -94,6 +96,19 @@ def editable_search_page():
                         edited_dob = st.text_input("জন্ম তারিখ", value=record.get('জন্ম_তারিখ', ''), key=f"dob_{record['id']}")
                         edited_address = st.text_area("ঠিকানা", value=record.get('ঠিকানা', ''), key=f"address_{record['id']}")
                         edited_photo = st.text_input("ছবির লিঙ্ক", value=record.get('photo_link', ''), key=f"photo_{record['id']}")
+                    
+                    # Gender selection in editable form
+                    current_gender = record.get('gender', '')
+                    gender_options = ['Male', 'Female', 'Other', '']
+                    if current_gender not in gender_options:
+                        gender_options.append(current_gender) # Add current value if it's not in default options
+                    
+                    edited_gender = st.selectbox(
+                        "লিঙ্গ",
+                        options=gender_options,
+                        index=gender_options.index(current_gender),
+                        key=f"gender_{record['id']}"
+                    )
 
                     edited_description = st.text_area("বিবরণ", value=record.get('description', ''), key=f"desc_{record['id']}")
                     
@@ -126,7 +141,8 @@ def editable_search_page():
                                 'পিতার_নাম': edited_father, 'মাতার_নাম': edited_mother, 'পেশা': edited_occupation,
                                 'ঠিকানা': edited_address, 'জন্ম_তারিখ': edited_dob, 'phone_number': edited_phone,
                                 'facebook_link': edited_fb, 'photo_link': edited_photo, 'description': edited_description,
-                                'relationship_status': edited_relationship
+                                'relationship_status': edited_relationship,
+                                'gender': edited_gender # Include gender in updated data
                             }
                             db.update_record(record['id'], updated_data)
 
