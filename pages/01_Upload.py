@@ -48,22 +48,33 @@ def upload_page():
                         batch_id = db.add_batch(batch_name)
                         st.success(f"নতুন ব্যাচ '{batch_name}' তৈরি করা হয়েছে")
 
-                    total_records = 0
+                    total_records_processed = 0 # Track records processed by data_processor
+                    total_records_added_to_db = 0 # Track records successfully added to DB
+
                     for uploaded_file in uploaded_files:
                         content = uploaded_file.read().decode('utf-8')
                         # Pass the selected_gender to the data processor
                         records = process_text_file(content, default_gender=selected_gender if selected_gender else None)
+                        total_records_processed += len(records)
 
                         # Store records in database
                         for record in records:
-                            db.add_record(batch_id, uploaded_file.name, record)
-                            total_records += 1
+                            try:
+                                db.add_record(batch_id, uploaded_file.name, record)
+                                total_records_added_to_db += 1
+                            except Exception as record_e:
+                                logger.error(f"Failed to add record to DB: {record_e} - Data: {record}")
+                                st.error(f"রেকর্ড যোগ করতে ব্যর্থ: {record_e}. কিছু রেকর্ড ডাটাবেসে যোগ করা যায়নি।")
+                                # Continue processing other records even if one fails
 
-                    st.success(f"সফলভাবে {len(uploaded_files)} টি ফাইল এবং {total_records} টি রেকর্ড আপলোড করা হয়েছে!")
+                    if total_records_added_to_db > 0:
+                        st.success(f"সফলভাবে {len(uploaded_files)} টি ফাইল এবং {total_records_added_to_db} টি রেকর্ড ডাটাবেসে আপলোড করা হয়েছে!")
+                    else:
+                        st.warning("কোনো রেকর্ড ডাটাবেসে যোগ করা যায়নি। ফাইল ফরম্যাট বা ডাটাবেস স্কিমা পরীক্ষা করুন।")
 
             except Exception as e:
-                logger.error(f"Upload failed: {str(e)}")
-                st.error(f"আপলোড ব্যর্থ হয়েছে: {str(e)}")
+                logger.error(f"Upload process failed: {str(e)}")
+                st.error(f"আপলোড প্রক্রিয়া ব্যর্থ হয়েছে: {str(e)}")
 
     # Display existing batches
     st.subheader("বিদ্যমান ব্যাচসমূহ")
