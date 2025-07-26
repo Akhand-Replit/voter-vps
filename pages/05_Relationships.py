@@ -57,6 +57,7 @@ def display_relationship_card(record, db):
             st.markdown(f"**পেশা:** {record['পেশা']}")
             st.markdown(f"**ঠিকানা:** {record['ঠিকানা']}")
             st.markdown(f"**জন্ম তারিখ:** {record['জন্ম_তারিখ']}")
+            st.markdown(f"**লিঙ্গ:** {record.get('gender', 'N/A')}") # Display gender
 
         # Additional contact information
         st.markdown(f"**ফোন নাম্বার:** {record.get('phone_number', 'N/A')}")
