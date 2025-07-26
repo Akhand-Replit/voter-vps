@@ -20,6 +20,30 @@ def all_data_page():
 
     if not batches:
         st.info("কোন ডাটা পাওয়া যায়নি")
+        
+        # Option to clear entire database even if no batches exist
+        st.markdown("---")
+        st.subheader("ডেটাবেস ম্যানেজমেন্ট")
+        if st.button("🔴 সম্পূর্ণ ডাটাবেস মুছে ফেলুন (সাবধান!)", type="secondary", use_container_width=True):
+            if st.session_state.get('confirm_clear_db', False):
+                try:
+                    # Delete all records first (which will also delete record_events due to CASCADE)
+                    with db.conn.cursor() as cur:
+                        cur.execute("DELETE FROM records")
+                        cur.execute("DELETE FROM batches")
+                        cur.execute("DELETE FROM events")
+                    db.conn.commit()
+                    st.success("✅ সম্পূর্ণ ডাটাবেস সফলভাবে মুছে ফেলা হয়েছে!")
+                    st.session_state.pop('confirm_clear_db', None) # Reset confirmation
+                    st.rerun()
+                except Exception as e:
+                    logger.error(f"Error clearing database: {str(e)}")
+                    st.error(f"ডাটাবেস মুছে ফেলার সময় সমস্যা হয়েছে: {str(e)}")
+            else:
+                st.warning("আপনি কি নিশ্চিত যে আপনি সম্পূর্ণ ডাটাবেস মুছে ফেলতে চান? এই ক্রিয়াটি অপরিবর্তনীয়।")
+                st.session_state.confirm_clear_db = True
+                st.button("হ্যাঁ, আমি নিশ্চিত (সম্পূর্ণ মুছে ফেলুন)", type="danger", key="confirm_clear_db_btn")
+        
         return
 
     # --- Batch and File Selection ---
@@ -38,6 +62,48 @@ def all_data_page():
         if st.button("এই ব্যাচে নতুন রেকর্ড যোগ করার জন্য ফাইল তৈরি করুন"):
             db.add_record(selected_batch_id, "initial_records.txt", {'নাম': 'dummy'})
             st.rerun()
+        
+        # Add delete batch option even if no files in batch
+        st.markdown("---")
+        st.subheader("ব্যাচ ম্যানেজমেন্ট")
+        if st.button(f"🗑️ '{selected_batch_name}' ব্যাচ মুছে ফেলুন", type="secondary", use_container_width=True):
+            if st.session_state.get(f'confirm_delete_batch_{selected_batch_id}', False):
+                try:
+                    db.delete_batch(selected_batch_id)
+                    st.success(f"✅ ব্যাচ '{selected_batch_name}' সফলভাবে মুছে ফেলা হয়েছে!")
+                    st.session_state.pop(f'confirm_delete_batch_{selected_batch_id}', None) # Reset confirmation
+                    st.rerun()
+                except Exception as e:
+                    logger.error(f"Error deleting batch {selected_batch_id}: {str(e)}")
+                    st.error(f"ব্যাচ মুছে ফেলার সময় সমস্যা হয়েছে: {str(e)}")
+            else:
+                st.warning(f"আপনি কি নিশ্চিত যে আপনি '{selected_batch_name}' ব্যাচটি মুছে ফেলতে চান? এই ব্যাচের সমস্ত রেকর্ড মুছে যাবে।")
+                st.session_state[f'confirm_delete_batch_{selected_batch_id}'] = True
+                st.button("হ্যাঁ, আমি নিশ্চিত (ব্যাচ মুছে ফেলুন)", type="danger", key=f"confirm_delete_batch_btn_{selected_batch_id}")
+
+        # Option to clear entire database if there are batches but no files in selected one
+        st.markdown("---")
+        st.subheader("সম্পূর্ণ ডাটাবেস ম্যানেজমেন্ট")
+        if st.button("🔴 সম্পূর্ণ ডাটাবেস মুছে ফেলুন (সাবধান!)", type="secondary", use_container_width=True):
+            if st.session_state.get('confirm_clear_db', False):
+                try:
+                    # Delete all records first (which will also delete record_events due to CASCADE)
+                    with db.conn.cursor() as cur:
+                        cur.execute("DELETE FROM records")
+                        cur.execute("DELETE FROM batches")
+                        cur.execute("DELETE FROM events")
+                    db.conn.commit()
+                    st.success("✅ সম্পূর্ণ ডাটাবেস সফলভাবে মুছে ফেলা হয়েছে!")
+                    st.session_state.pop('confirm_clear_db', None) # Reset confirmation
+                    st.rerun()
+                except Exception as e:
+                    logger.error(f"Error clearing database: {str(e)}")
+                    st.error(f"ডাটাবেস মুছে ফেলার সময় সমস্যা হয়েছে: {str(e)}")
+            else:
+                st.warning("আপনি কি নিশ্চিত যে আপনি সম্পূর্ণ ডাটাবেস মুছে ফেলতে চান? এই ক্রিয়াটি অপরিবর্তনীয়।")
+                st.session_state.confirm_clear_db = True
+                st.button("হ্যাঁ, আমি নিশ্চিত (সম্পূর্ণ মুছে ফেলুন)", type="danger", key="confirm_clear_db_btn")
+
         return
         
     selected_file_name = st.selectbox(
@@ -156,6 +222,51 @@ def all_data_page():
 
     else:
         st.info("এই ফাইল বা ব্যাচে কোন রেকর্ড পাওয়া যায়নি।")
+
+    st.markdown("---")
+    st.subheader("ডেটাবেস ম্যানেজমেন্ট")
+
+    # Delete specific batch button
+    if selected_batch_name and selected_batch_name != 'সব ব্যাচ':
+        if st.button(f"🗑️ '{selected_batch_name}' ব্যাচ মুছে ফেলুন", type="secondary", use_container_width=True):
+            if st.session_state.get(f'confirm_delete_batch_{selected_batch_id}', False):
+                try:
+                    db.delete_batch(selected_batch_id)
+                    st.success(f"✅ ব্যাচ '{selected_batch_name}' সফলভাবে মুছে ফেলা হয়েছে!")
+                    st.session_state.pop(f'confirm_delete_batch_{selected_batch_id}', None) # Reset confirmation
+                    st.rerun()
+                except Exception as e:
+                    logger.error(f"Error deleting batch {selected_batch_id}: {str(e)}")
+                    st.error(f"ব্যাচ মুছে ফেলার সময় সমস্যা হয়েছে: {str(e)}")
+            else:
+                st.warning(f"আপনি কি নিশ্চিত যে আপনি '{selected_batch_name}' ব্যাচটি মুছে ফেলতে চান? এই ব্যাচের সমস্ত রেকর্ড মুছে যাবে।")
+                st.session_state[f'confirm_delete_batch_{selected_batch_id}'] = True
+                st.button("হ্যাঁ, আমি নিশ্চিত (ব্যাচ মুছে ফেলুন)", type="danger", key=f"confirm_delete_batch_btn_{selected_batch_id}")
+    else:
+        st.info("একটি নির্দিষ্ট ব্যাচ মুছে ফেলার জন্য, অনুগ্রহ করে উপরে একটি ব্যাচ নির্বাচন করুন।")
+
+
+    # Clear entire database button
+    if st.button("🔴 সম্পূর্ণ ডাটাবেস মুছে ফেলুন (সাবধান!)", type="secondary", use_container_width=True):
+        if st.session_state.get('confirm_clear_db', False):
+            try:
+                # Delete all records first (which will also delete record_events due to CASCADE)
+                with db.conn.cursor() as cur:
+                    cur.execute("DELETE FROM records")
+                    cur.execute("DELETE FROM batches")
+                    cur.execute("DELETE FROM events")
+                db.conn.commit()
+                st.success("✅ সম্পূর্ণ ডাটাবেস সফলভাবে মুছে ফেলা হয়েছে!")
+                st.session_state.pop('confirm_clear_db', None) # Reset confirmation
+                st.rerun()
+            except Exception as e:
+                logger.error(f"Error clearing database: {str(e)}")
+                st.error(f"ডাটাবেস মুছে ফেলার সময় সমস্যা হয়েছে: {str(e)}")
+        else:
+            st.warning("আপনি কি নিশ্চিত যে আপনি সম্পূর্ণ ডাটাবেস মুছে ফেলতে চান? এই ক্রিয়াটি অপরিবর্তনীয়।")
+            st.session_state.confirm_clear_db = True
+            st.button("হ্যাঁ, আমি নিশ্চিত (সম্পূর্ণ মুছে ফেলুন)", type="danger", key="confirm_clear_db_btn")
+
 
 if __name__ == "__main__":
     all_data_page()
