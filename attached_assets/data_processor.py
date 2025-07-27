@@ -117,4 +117,3 @@ def process_text_file(content, default_gender=None):
     except Exception as e:
         logger.error(f"Error processing file: {str(e)}")
         raise Exception(f"Failed to process file: {str(e)}")
-
