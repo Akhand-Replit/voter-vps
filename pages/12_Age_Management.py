@@ -30,7 +30,9 @@ def age_management_page():
                 updated_count = 0
                 
                 # Start a transaction for bulk updates
-                db.conn.autocommit = False 
+                # db.conn.autocommit is already False from __init__, so no need to set it again
+                # However, ensure a fresh transaction context is used if needed.
+                # The key is to commit/rollback before any Streamlit state changes/reruns.
 
                 for record in records_to_update:
                     record_id = record['id']
@@ -42,6 +44,8 @@ def age_management_page():
                         updated_count += 1
                 
                 db.commit_changes() # Commit all updates at once
+                
+                # Move st.success and st.rerun outside the transaction scope
                 st.success(f"✅ সফলভাবে {updated_count} টি রেকর্ডের বয়স আপডেট করা হয়েছে!")
                 st.rerun() # Rerun to refresh the page and stats
         except Exception as e:
