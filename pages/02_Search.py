@@ -41,6 +41,7 @@ def display_result_card(result, db):
             st.markdown(f"**জন্ম তারিখ:** {result.get('জন্ম_তারিখ', 'N/A')}")
             st.markdown(f"**ঠিকানা:** {result.get('ঠিকানা', 'N/A')}")
             st.markdown(f"**লিঙ্গ:** {result.get('gender', 'N/A')}") # Display gender
+            st.markdown(f"**বয়স:** {result.get('age', 'N/A')}") # Display age
 
         st.markdown("---")
 
