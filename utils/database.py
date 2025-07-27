@@ -3,6 +3,8 @@ from psycopg2.extras import RealDictCursor
 import logging
 import os
 import streamlit as st
+from datetime import datetime
+import re # For Bengali numeral conversion
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -25,6 +27,7 @@ class Database:
             # Ensure auto-commit is off to manage transactions manually
             self.conn.autocommit = False 
             self.create_tables()
+            self.add_missing_columns() # Call method to add new columns if they don't exist
         except psycopg2.OperationalError as e:
             logger.error(f"Database connection failed: {e}")
             st.error("ডাটাবেস সংযোগ করতে ব্যর্থ। অনুগ্রহ করে আপনার শংসাপত্রগুলি পরীক্ষা করুন।")
@@ -36,13 +39,6 @@ class Database:
         Removed DROP TABLE statements to ensure data persistence.
         """
         with self.conn.cursor() as cur:
-            # Removed the following lines to prevent data loss on app restart:
-            # cur.execute("DROP TABLE IF EXISTS record_events CASCADE")
-            # cur.execute("DROP TABLE IF EXISTS records CASCADE")
-            # cur.execute("DROP TABLE IF EXISTS events CASCADE")
-            # cur.execute("DROP TABLE IF EXISTS batches CASCADE")
-            # self.conn.commit() # Commit drops immediately
-
             # Batches Table: Stores information about data batches.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS batches (
@@ -53,7 +49,7 @@ class Database:
             """)
 
             # Records Table: Stores the main data records.
-            # Added 'gender' column
+            # Added 'gender' and 'age' columns
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS records (
                     id SERIAL PRIMARY KEY,
@@ -73,6 +69,7 @@ class Database:
                     description TEXT,
                     relationship_status VARCHAR(20) DEFAULT 'Regular',
                     gender VARCHAR(10),
+                    age INTEGER, -- Added age column
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -95,6 +92,21 @@ class Database:
                 )
             """)
             self.conn.commit()
+
+    def add_missing_columns(self):
+        """
+        Adds new columns to existing tables if they do not already exist.
+        This is crucial for schema evolution without dropping data.
+        """
+        with self.conn.cursor() as cur:
+            # Add 'age' column to 'records' table if it doesn't exist
+            try:
+                cur.execute("ALTER TABLE records ADD COLUMN IF NOT EXISTS age INTEGER")
+                self.conn.commit()
+                logger.info("Added 'age' column to 'records' table (if not exists).")
+            except psycopg2.Error as e:
+                logger.warning(f"Could not add 'age' column: {e}")
+                self.conn.rollback()
 
     def get_dashboard_stats(self):
         """Retrieves key statistics for the main dashboard."""
@@ -121,6 +133,11 @@ class Database:
             cur.execute("SELECT gender, COUNT(*) as count FROM records WHERE gender IS NOT NULL AND gender != '' GROUP BY gender")
             gender_counts = cur.fetchall()
             stats['genders'] = {item['gender']: item['count'] for item in gender_counts}
+
+            # Age distribution (optional, for dashboard or analysis page)
+            cur.execute("SELECT CASE WHEN age IS NULL THEN 'Unknown' ELSE (FLOOR(age / 10) * 10 || '-' || (FLOOR(age / 10) * 10 + 9)) END as age_group, COUNT(*) as count FROM records WHERE age IS NOT NULL GROUP BY age_group ORDER BY age_group")
+            age_distribution = cur.fetchall()
+            stats['age_distribution'] = age_distribution
 
         return stats
 
@@ -196,7 +213,7 @@ class Database:
 
     def add_record(self, batch_id, file_name, record_data):
         """
-        Adds a new record to the database.
+        Adds a new record to the database, including calculated age.
         This function only executes the INSERT statement; the calling function
         is responsible for committing or rolling back the transaction.
         """
@@ -207,8 +224,8 @@ class Database:
                     batch_id, file_name, ক্রমিক_নং, নাম, ভোটার_নং,
                     পিতার_নাম, মাতার_নাম, পেশা, জন্ম_তারিখ, ঠিকানা,
                     phone_number, facebook_link, photo_link, description,
-                    relationship_status, gender
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    relationship_status, gender, age
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 batch_id, file_name,
                 record_data.get('ক্রমিক_নং'), record_data.get('নাম'),
@@ -218,7 +235,8 @@ class Database:
                 record_data.get('phone_number'), record_data.get('facebook_link'),
                 record_data.get('photo_link'), record_data.get('description'),
                 record_data.get('relationship_status', 'Regular'),
-                record_data.get('gender')
+                record_data.get('gender'),
+                record_data.get('age') # Include age here
             ))
             # logger.info("Record prepared for insertion.") # Log that it's ready, not yet committed
 
@@ -238,7 +256,7 @@ class Database:
         logger.warning("Database transaction rolled back.")
 
     def update_record(self, record_id, updated_data):
-        """Updates an existing record with new data."""
+        """Updates an existing record with new data, including age if provided."""
         with self.conn.cursor() as cur:
             query = """
                 UPDATE records SET
@@ -246,7 +264,7 @@ class Database:
                     মাতার_নাম = %s, পেশা = %s, ঠিকানা = %s, জন্ম_তারিখ = %s,
                     phone_number = %s, facebook_link = %s, photo_link = %s,
                     description = %s, relationship_status = %s,
-                    gender = %s
+                    gender = %s, age = %s -- Include age in update
                 WHERE id = %s
             """
             values = (
@@ -258,6 +276,7 @@ class Database:
                 str(updated_data.get('photo_link', '')), str(updated_data.get('description', '')),
                 str(updated_data.get('relationship_status', 'Regular')),
                 str(updated_data.get('gender', '')),
+                updated_data.get('age'), # Get age from updated_data
                 record_id
             )
             cur.execute(query, values)
@@ -415,3 +434,19 @@ class Database:
         with self.conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM records")
             return cur.fetchone()[0]
+
+    def get_all_records_with_dob(self):
+        """Retrieves all records that have a 'জন্ম_তারিখ' (date of birth)."""
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT id, জন্ম_তারিখ
+                FROM records
+                WHERE জন্ম_তারিখ IS NOT NULL AND জন্ম_তারিখ != ''
+            """)
+            return cur.fetchall()
+
+    def update_record_age(self, record_id: int, age: int):
+        """Updates the 'age' column for a specific record."""
+        with self.conn.cursor() as cur:
+            cur.execute("UPDATE records SET age = %s WHERE id = %s", (age, record_id))
+            # No commit here, as it will be part of a larger transaction in the age management page
