@@ -33,9 +33,15 @@ def display_relationship_card(record, db):
         cols = st.columns([1, 3])
 
         with cols[0]:
-            # Profile image
-            if record.get('photo_link'):
-                st.image(record['photo_link'], width=100)
+            # Profile image - Add robust handling for photo_link
+            photo_link = record.get('photo_link')
+            if photo_link and photo_link.strip():
+                # Use a try-except block to catch potential issues with st.image
+                try:
+                    st.image(photo_link, width=100)
+                except Exception as e:
+                    logger.warning(f"Could not load image from {photo_link}: {e}. Displaying placeholder.")
+                    st.image("https://placehold.co/100x100/EEE/31343C?text=No+Image", width=100)
             else:
                 st.image("https://placehold.co/100x100/EEE/31343C?text=No+Image", width=100)
 
