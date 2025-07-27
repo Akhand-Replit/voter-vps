@@ -3,6 +3,7 @@ import pandas as pd
 from utils.database import Database
 from utils.styling import apply_custom_styling
 import logging
+from attached_assets.data_processor import calculate_age # Import calculate_age
 
 logger = logging.getLogger(__name__)
 apply_custom_styling()
@@ -97,6 +98,9 @@ def editable_search_page():
                         edited_address = st.text_area("ঠিকানা", value=record.get('ঠিকানা', ''), key=f"address_{record['id']}")
                         edited_photo = st.text_input("ছবির লিঙ্ক", value=record.get('photo_link', ''), key=f"photo_{record['id']}")
                     
+                    # Age display (not editable directly)
+                    st.markdown(f"**বয়স:** {record.get('age', 'N/A')}")
+
                     # Gender selection in editable form
                     current_gender = record.get('gender', '')
                     gender_options = ['Male', 'Female', 'Other', '']
@@ -144,6 +148,11 @@ def editable_search_page():
                                 'relationship_status': edited_relationship,
                                 'gender': edited_gender # Include gender in updated data
                             }
+                            
+                            # Recalculate age if 'জন্ম_তারিখ' was changed
+                            calculated_age = calculate_age(edited_dob)
+                            updated_data['age'] = calculated_age
+
                             db.update_record(record['id'], updated_data)
 
                             # 2. Update Event Assignments
