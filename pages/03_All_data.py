@@ -50,7 +50,8 @@ def all_data_page():
     selected_batch_name = st.selectbox(
         "ব্যাচ নির্বাচন করুন",
         options=[batch['name'] for batch in batches],
-        format_func=lambda x: f"ব্যাচ: {x}"
+        format_func=lambda x: f"ব্যাচ: {x}",
+        key="batch_selector" # Added a unique key for the selectbox
     )
     
     selected_batch_id = next(b['id'] for b in batches if b['name'] == selected_batch_name)
@@ -61,6 +62,7 @@ def all_data_page():
         # Allow creating a dummy file for new records if batch is empty
         if st.button("এই ব্যাচে নতুন রেকর্ড যোগ করার জন্য ফাইল তৈরি করুন"):
             db.add_record(selected_batch_id, "initial_records.txt", {'নাম': 'dummy'})
+            db.commit_changes() # Commit the dummy record insertion
             st.rerun()
         
         # Add delete batch option even if no files in batch
@@ -109,7 +111,8 @@ def all_data_page():
     selected_file_name = st.selectbox(
         "ফাইল নির্বাচন করুন",
         options=['সব'] + [file['file_name'] for file in files],
-        format_func=lambda x: f"ফাইল: {x}" if x != 'সব' else "সব ফাইল দেখুন"
+        format_func=lambda x: f"ফাইল: {x}" if x != 'সব' else "সব ফাইল দেখুন",
+        key="file_selector" # Added a unique key for the selectbox
     )
 
     # --- Data Display and Editing ---
@@ -122,9 +125,9 @@ def all_data_page():
         df = pd.DataFrame(records)
         st.write(f"মোট রেকর্ড: {len(records)}")
 
-        # Keep original df in session state for comparison
-        if 'original_df' not in st.session_state:
-            st.session_state.original_df = df.copy()
+        # IMPORTANT: Update original_df in session state whenever records are loaded or filtered
+        # This ensures that the comparison in st.data_editor is always against the currently displayed data
+        st.session_state.original_df = df.copy()
 
         edited_df = st.data_editor(
             df,
@@ -161,24 +164,37 @@ def all_data_page():
         with col1:
             if st.button("💾 পরিবর্তন সংরক্ষণ", type="primary", use_container_width=True):
                 try:
+                    # Retrieve the original_df from session state
                     original_df = st.session_state.original_df
+                    
+                    # Ensure both DataFrames have the same index before comparing
+                    # This step is crucial if the index somehow got misaligned
+                    original_df = original_df.set_index('id', drop=False)
+                    edited_df = edited_df.set_index('id', drop=False)
+
+                    # Identify editable columns
                     editable_cols = [
                         'ক্রমিক_নং', 'নাম', 'ভোটার_নং', 'পিতার_নাম', 'মাতার_নাম', 'পেশা', 
                         'ঠিকানা', 'জন্ম_তারিখ', 'phone_number', 'facebook_link', 
-                        'photo_link', 'description', 'relationship_status', 'gender' # Added gender here
+                        'photo_link', 'description', 'relationship_status', 'gender' 
                     ]
-                    changes = edited_df[editable_cols].compare(original_df[editable_cols])
+                    
+                    # Compare only the editable columns
+                    # Use .align to ensure identical labels for comparison
+                    original_subset, edited_subset = original_df[editable_cols].align(edited_df[editable_cols], join='inner', axis=None)
+                    changes = edited_subset.compare(original_subset)
                     
                     if not changes.empty:
                         updated_count = 0
                         for idx in changes.index:
-                            record_id = int(original_df.loc[idx, 'id'])
+                            record_id = int(original_df.loc[idx, 'id']) # Use original_df for record_id
                             updated_data = edited_df.loc[idx].to_dict()
                             db.update_record(record_id, updated_data)
                             updated_count += 1
                         st.success(f"{updated_count} টি রেকর্ডের পরিবর্তন সফলভাবে সংরক্ষিত হয়েছে!")
-                        st.session_state.original_df = edited_df.copy() # Update session state
-                        st.rerun()
+                        # After saving, re-fetch data or update original_df to reflect saved changes
+                        st.session_state.original_df = edited_df.copy() # Update session state with the new state
+                        st.rerun() # Rerun to refresh the data editor with the latest saved data
                     else:
                         st.info("কোনো পরিবর্তন সনাক্ত করা যায়নি।")
                 except Exception as e:
