@@ -1,9 +1,53 @@
 import re
 import logging
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Mapping for Bengali numerals to English numerals
+BENGALI_NUMERALS = {
+    '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',
+    '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9'
+}
+
+def convert_bengali_numerals_to_english(text):
+    """Converts Bengali numerals in a string to English numerals."""
+    if not isinstance(text, str):
+        return text
+    for bengali, english in BENGALI_NUMERALS.items():
+        text = text.replace(bengali, english)
+    return text
+
+def calculate_age(dob_str):
+    """
+    Calculates age from a date of birth string.
+    Expects date in DD-MM-YYYY format (English numerals).
+    Returns age as an integer or None if parsing fails.
+    """
+    if not dob_str:
+        return None
+    
+    # Convert any Bengali numerals to English first
+    dob_str_english = convert_bengali_numerals_to_english(dob_str)
+
+    try:
+        # Attempt to parse common date formats
+        # Prioritize DD-MM-YYYY, then YYYY-MM-DD, then MM-DD-YYYY
+        for fmt in ["%d-%m-%Y", "%Y-%m-%d", "%m-%d-%Y", "%d/%m/%Y", "%Y/%m/%d", "%m/%d/%Y"]:
+            try:
+                birth_date = datetime.strptime(dob_str_english, fmt)
+                today = datetime.today()
+                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+                return age
+            except ValueError:
+                continue # Try next format
+        logger.warning(f"Could not parse date of birth string: {dob_str}. Returning None for age.")
+        return None
+    except Exception as e:
+        logger.error(f"Error calculating age for '{dob_str}': {e}")
+        return None
 
 def process_text_file(content, default_gender=None):
     """Process the text file content and extract structured data."""
@@ -52,6 +96,13 @@ def process_text_file(content, default_gender=None):
             if 'gender' not in record_dict and default_gender:
                 record_dict['gender'] = default_gender
 
+            # Calculate age from 'জন্ম_তারিখ'
+            dob = record_dict.get('জন্ম_তারিখ')
+            if dob:
+                record_dict['age'] = calculate_age(dob)
+            else:
+                record_dict['age'] = None # Ensure age is set to None if DOB is missing
+
             # Only add records that have at least a few key fields
             required_fields = {'ক্রমিক_নং', 'নাম', 'ভোটার_নং'}
             if all(field in record_dict for field in required_fields):
@@ -66,3 +117,4 @@ def process_text_file(content, default_gender=None):
     except Exception as e:
         logger.error(f"Error processing file: {str(e)}")
         raise Exception(f"Failed to process file: {str(e)}")
+
