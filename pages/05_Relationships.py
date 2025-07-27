@@ -47,7 +47,9 @@ def display_relationship_card(record, db):
         # Location info with both batch name and file name
         st.markdown(f"📍 **স্থান:** {get_record_location(db, record)}")
 
-        # Main details
+        st.markdown("---")
+
+        # Main details in two columns for better organization
         col3, col4 = st.columns(2)
         with col3:
             st.markdown(f"**ভোটার নং:** {record['ভোটার_নং']}")
@@ -55,9 +57,10 @@ def display_relationship_card(record, db):
             st.markdown(f"**মাতার নাম:** {record['মাতার_নাম']}")
         with col4:
             st.markdown(f"**পেশা:** {record['পেশা']}")
+            st.markdown(f"**জন্ম তারিখ:** {record.get('জন্ম_তারিখ', 'N/A')}")
             st.markdown(f"**ঠিকানা:** {record['ঠিকানা']}")
-            st.markdown(f"**জন্ম তারিখ:** {record['জন্ম_তারিখ']}")
             st.markdown(f"**লিঙ্গ:** {record.get('gender', 'N/A')}") # Display gender
+            st.markdown(f"**বয়স:** {record.get('age', 'N/A')}") # Display age
 
         # Additional contact information
         st.markdown(f"**ফোন নাম্বার:** {record.get('phone_number', 'N/A')}")
