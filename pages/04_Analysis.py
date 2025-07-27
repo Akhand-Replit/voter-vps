@@ -85,6 +85,41 @@ def analysis_page():
         else:
             st.info("লিঙ্গ বিশ্লেষণের জন্য কোন ডাটা পাওয়া যায়নি।")
 
+        # --- Age Distribution Analysis ---
+        st.subheader("বয়স অনুযায়ী বিতরণ")
+        # Fetch age distribution from dashboard stats (which now includes it)
+        dashboard_stats = db.get_dashboard_stats()
+        age_distribution_data = dashboard_stats.get('age_distribution', [])
+
+        if age_distribution_data:
+            df_age = pd.DataFrame(age_distribution_data)
+            # Sort age groups for better visualization
+            df_age['age_group_sort_key'] = df_age['age_group'].apply(lambda x: int(x.split('-')[0]) if x != 'Unknown' else -1)
+            df_age = df_age.sort_values('age_group_sort_key')
+
+            fig_age = px.bar(
+                df_age,
+                x='age_group',
+                y='count',
+                title=f"বয়স অনুযায়ী বিতরণ ({selected_batch})",
+                labels={'age_group': 'বয়স গ্রুপ', 'count': 'সংখ্যা'}
+            )
+            fig_age.update_layout(
+                font=dict(family="Noto Sans Bengali"),
+                height=500
+            )
+            st.plotly_chart(fig_age, use_container_width=True)
+
+            st.markdown("##### বিস্তারিত বয়স পরিসংখ্যান")
+            st.dataframe(
+                df_age[['age_group', 'count']].rename(columns={'age_group': 'বয়স গ্রুপ', 'count': 'সংখ্যা'}),
+                hide_index=True,
+                use_container_width=True
+            )
+        else:
+            st.info("বয়স বিশ্লেষণের জন্য কোন ডাটা পাওয়া যায়নি।")
+
+
         # --- Occupation Distribution Analysis ---
         st.subheader("পেশা অনুযায়ী বিতরণ")
         if selected_batch == 'সব ব্যাচ':
