@@ -36,14 +36,29 @@ def display_result_card(result, db):
             st.markdown(f"**ভোটার নং:** {result.get('ভোটার_নং', 'N/A')}")
             st.markdown(f"**পিতার নাম:** {result.get('পিতার_নাম', 'N/A')}")
             st.markdown(f"**মাতার নাম:** {result.get('মাতার_নাম', 'N/A')}")
-        with col4:
             st.markdown(f"**পেশা:** {result.get('পেশা', 'N/A')}")
+            st.markdown(f"**Occupation Details:** {result.get('occupation_details', 'N/A')}")
+        with col4:
             st.markdown(f"**জন্ম তারিখ:** {result.get('জন্ম_তারিখ', 'N/A')}")
             st.markdown(f"**ঠিকানা:** {result.get('ঠিকানা', 'N/A')}")
             st.markdown(f"**লিঙ্গ:** {result.get('gender', 'N/A')}") # Display gender
             st.markdown(f"**বয়স:** {result.get('age', 'N/A')}") # Display age
+            st.markdown(f"**Political Status:** {result.get('political_status', 'N/A')}")
 
         st.markdown("---")
+
+        # Contact and social media
+        st.markdown(f"**ফোন নাম্বার:** {result.get('phone_number', 'N/A')}")
+        if result.get('whatsapp_number'):
+            st.markdown(f"**Whatsapp:** [Link]({result.get('whatsapp_number')})")
+        if result.get('facebook_link'):
+            st.markdown(f"**ফেসবুক:** [Link]({result.get('facebook_link')})")
+        if result.get('tiktok_link'):
+            st.markdown(f"**Tiktok:** [Link]({result.get('tiktok_link')})")
+        if result.get('youtube_link'):
+            st.markdown(f"**Youtube:** [Link]({result.get('youtube_link')})")
+        if result.get('insta_link'):
+            st.markdown(f"**Instagram:** [Link]({result.get('insta_link')})")
 
         # Display assigned events
         events_list = result.get('events', [])
