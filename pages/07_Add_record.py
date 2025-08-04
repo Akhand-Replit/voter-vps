@@ -58,26 +58,38 @@ def add_record_page():
             name = st.text_input("নাম", key="name")
             voter_no = st.text_input("ভোটার নং", key="voter_no")
             father_name = st.text_input("পিতার নাম", key="father_name")
-
-        with col2:
             mother_name = st.text_input("মাতার নাম", key="mother_name")
             occupation = st.text_input("পেশা", key="occupation")
+            occupation_details = st.text_area("Occupation Details", key="occupation_details")
+
+
+        with col2:
             birth_date = st.text_input("জন্ম তারিখ", key="birth_date")
             address = st.text_area("ঠিকানা", key="address")
-        
-        # Gender selection
-        gender = st.selectbox(
-            "লিঙ্গ",
-            options=['', 'Male', 'Female', 'Other'], # Empty string for 'not specified'
-            format_func=lambda x: x if x else "নির্বাচন করুন",
-            key="gender_select"
-        )
+            political_status = st.text_input("Political Status", key="political_status")
+            # Gender selection
+            gender = st.selectbox(
+                "লিঙ্গ",
+                options=['', 'Male', 'Female', 'Other'], # Empty string for 'not specified'
+                format_func=lambda x: x if x else "নির্বাচন করুন",
+                key="gender_select"
+            )
 
-        # Additional information
-        st.subheader("অতিরিক্ত তথ্য")
-        phone = st.text_input("ফোন নাম্বার", key="phone")
-        facebook = st.text_input("ফেসবুক লিঙ্ক", key="facebook")
-        photo = st.text_input("ছবির লিঙ্ক", key="photo")
+        st.subheader("যোগাযোগের তথ্য")
+        col3, col4 = st.columns(2)
+
+        with col3:
+            phone = st.text_input("ফোন নাম্বার", key="phone")
+            whatsapp = st.text_input("Whatsapp Number", key="whatsapp")
+            facebook = st.text_input("ফেসবুক লিঙ্ক", key="facebook")
+            insta = st.text_input("Insta Link", key="insta")
+        
+        with col4:
+            tiktok = st.text_input("Tiktok Link", key="tiktok")
+            youtube = st.text_input("Youtube Link", key="youtube")
+            photo = st.text_input("ছবির লিঙ্ক", key="photo")
+
+
         description = st.text_area("বিবরণ", key="description")
 
         # Submit button
@@ -93,10 +105,16 @@ def add_record_page():
                     'পিতার_নাম': father_name,
                     'মাতার_নাম': mother_name,
                     'পেশা': occupation,
+                    'occupation_details': occupation_details,
                     'জন্ম_তারিখ': birth_date,
                     'ঠিকানা': address,
+                    'political_status': political_status,
                     'phone_number': phone,
+                    'whatsapp_number': whatsapp,
                     'facebook_link': facebook,
+                    'tiktok_link': tiktok,
+                    'youtube_link': youtube,
+                    'insta_link': insta,
                     'photo_link': photo,
                     'description': description,
                     'gender': gender if gender else None # Pass selected gender
