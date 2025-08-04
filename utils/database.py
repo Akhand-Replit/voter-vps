@@ -49,7 +49,7 @@ class Database:
             """)
 
             # Records Table: Stores the main data records.
-            # Added 'gender' and 'age' columns
+            # Added new columns for political status, social media links, etc.
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS records (
                     id SERIAL PRIMARY KEY,
@@ -61,15 +61,21 @@ class Database:
                     পিতার_নাম TEXT,
                     মাতার_নাম TEXT,
                     পেশা TEXT,
+                    occupation_details TEXT,
                     জন্ম_তারিখ VARCHAR(100),
                     ঠিকানা TEXT,
                     phone_number VARCHAR(50),
+                    whatsapp_number VARCHAR(100),
                     facebook_link TEXT,
-                    photo_link TEXT,
+                    tiktok_link TEXT,
+                    youtube_link TEXT,
+                    insta_link TEXT,
+                    photo_link TEXT DEFAULT 'https://placehold.co/100x100/EEE/31343C?text=No+Image',
                     description TEXT,
+                    political_status TEXT,
                     relationship_status VARCHAR(20) DEFAULT 'Regular',
                     gender VARCHAR(10),
-                    age INTEGER, -- Added age column
+                    age INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -99,14 +105,34 @@ class Database:
         This is crucial for schema evolution without dropping data.
         """
         with self.conn.cursor() as cur:
-            # Add 'age' column to 'records' table if it doesn't exist
+            columns_to_add = {
+                'age': 'INTEGER',
+                'political_status': 'TEXT',
+                'tiktok_link': 'TEXT',
+                'youtube_link': 'TEXT',
+                'insta_link': 'TEXT',
+                'occupation_details': 'TEXT',
+                'whatsapp_number': 'VARCHAR(100)'
+            }
+            for col, col_type in columns_to_add.items():
+                try:
+                    cur.execute(f"ALTER TABLE records ADD COLUMN IF NOT EXISTS {col} {col_type}")
+                    logger.info(f"Added '{col}' column to 'records' table (if not exists).")
+                except psycopg2.Error as e:
+                    logger.warning(f"Could not add '{col}' column: {e}")
+                    self.conn.rollback()
+            
+            # Set default for photo_link and update existing records
             try:
-                cur.execute("ALTER TABLE records ADD COLUMN IF NOT EXISTS age INTEGER")
-                self.conn.commit()
-                logger.info("Added 'age' column to 'records' table (if not exists).")
+                cur.execute("ALTER TABLE records ALTER COLUMN photo_link SET DEFAULT 'https://placehold.co/100x100/EEE/31343C?text=No+Image'")
+                cur.execute("UPDATE records SET photo_link = 'https://placehold.co/100x100/EEE/31343C?text=No+Image' WHERE photo_link IS NULL OR photo_link = ''")
+                logger.info("Set default for 'photo_link' and updated existing NULL/empty records.")
             except psycopg2.Error as e:
-                logger.warning(f"Could not add 'age' column: {e}")
+                logger.warning(f"Could not set default for 'photo_link' column: {e}")
                 self.conn.rollback()
+
+            self.conn.commit()
+
 
     def get_dashboard_stats(self):
         """Retrieves key statistics for the main dashboard."""
@@ -218,27 +244,35 @@ class Database:
         is responsible for committing or rolling back the transaction.
         """
         with self.conn.cursor() as cur:
-            # logger.info(f"Attempting to insert record: {record_data}") # Keep this for debugging if needed
+            whatsapp_number = record_data.get('whatsapp_number')
+            if whatsapp_number and not whatsapp_number.startswith('https://wa.me/'):
+                whatsapp_number = f"https://wa.me/{whatsapp_number}"
+            
+            photo_link = record_data.get('photo_link')
+            if not photo_link or not photo_link.strip():
+                photo_link = 'https://placehold.co/100x100/EEE/31343C?text=No+Image'
+            
             cur.execute("""
                 INSERT INTO records (
                     batch_id, file_name, ক্রমিক_নং, নাম, ভোটার_নং,
-                    পিতার_নাম, মাতার_নাম, পেশা, জন্ম_তারিখ, ঠিকানা,
-                    phone_number, facebook_link, photo_link, description,
-                    relationship_status, gender, age
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    পিতার_নাম, মাতার_নাম, পেশা, occupation_details, জন্ম_তারিখ, ঠিকানা,
+                    phone_number, whatsapp_number, facebook_link, tiktok_link, youtube_link, insta_link, photo_link, description,
+                    political_status, relationship_status, gender, age
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 batch_id, file_name,
                 record_data.get('ক্রমিক_নং'), record_data.get('নাম'),
                 record_data.get('ভোটার_নং'), record_data.get('পিতার_নাম'),
-                record_data.get('মাতার_নাম'), record_data.get('পেশা'),
+                record_data.get('মাতার_নাম'), record_data.get('পেশা'), record_data.get('occupation_details'),
                 record_data.get('জন্ম_তারিখ'), record_data.get('ঠিকানা'),
-                record_data.get('phone_number'), record_data.get('facebook_link'),
-                record_data.get('photo_link'), record_data.get('description'),
+                record_data.get('phone_number'), whatsapp_number, record_data.get('facebook_link'),
+                record_data.get('tiktok_link'), record_data.get('youtube_link'), record_data.get('insta_link'),
+                photo_link, record_data.get('description'),
+                record_data.get('political_status'),
                 record_data.get('relationship_status', 'Regular'),
                 record_data.get('gender'),
-                record_data.get('age') # Include age here
+                record_data.get('age')
             ))
-            # logger.info("Record prepared for insertion.") # Log that it's ready, not yet committed
 
     def commit_changes(self):
         """Commits the current database transaction."""
@@ -258,25 +292,35 @@ class Database:
     def update_record(self, record_id, updated_data):
         """Updates an existing record with new data, including age if provided."""
         with self.conn.cursor() as cur:
+            whatsapp_number = updated_data.get('whatsapp_number')
+            if whatsapp_number and not str(whatsapp_number).startswith('https://wa.me/'):
+                whatsapp_number = f"https://wa.me/{whatsapp_number}"
+            
+            photo_link = updated_data.get('photo_link')
+            if not photo_link or not photo_link.strip():
+                photo_link = 'https://placehold.co/100x100/EEE/31343C?text=No+Image'
+
             query = """
                 UPDATE records SET
                     ক্রমিক_নং = %s, নাম = %s, ভোটার_নং = %s, পিতার_নাম = %s,
-                    মাতার_নাম = %s, পেশা = %s, ঠিকানা = %s, জন্ম_তারিখ = %s,
-                    phone_number = %s, facebook_link = %s, photo_link = %s,
-                    description = %s, relationship_status = %s,
-                    gender = %s, age = %s -- Include age in update
+                    মাতার_নাম = %s, পেশা = %s, occupation_details = %s, ঠিকানা = %s, জন্ম_তারিখ = %s,
+                    phone_number = %s, whatsapp_number = %s, facebook_link = %s, tiktok_link = %s, youtube_link = %s, insta_link = %s, photo_link = %s,
+                    description = %s, political_status = %s, relationship_status = %s,
+                    gender = %s, age = %s
                 WHERE id = %s
             """
             values = (
                 str(updated_data.get('ক্রমিক_নং', '')), str(updated_data.get('নাম', '')),
                 str(updated_data.get('ভোটার_নং', '')), str(updated_data.get('পিতার_নাম', '')),
                 str(updated_data.get('মাতার_নাম', '')), str(updated_data.get('পেশা', '')),
-                str(updated_data.get('ঠিকানা', '')), str(updated_data.get('জন্ম_তারিখ', '')),
-                str(updated_data.get('phone_number', '')), str(updated_data.get('facebook_link', '')),
-                str(updated_data.get('photo_link', '')), str(updated_data.get('description', '')),
+                str(updated_data.get('occupation_details', '')), str(updated_data.get('ঠিকানা', '')), str(updated_data.get('জন্ম_তারিখ', '')),
+                str(updated_data.get('phone_number', '')), whatsapp_number, str(updated_data.get('facebook_link', '')),
+                str(updated_data.get('tiktok_link', '')), str(updated_data.get('youtube_link', '')), str(updated_data.get('insta_link', '')),
+                photo_link, str(updated_data.get('description', '')),
+                str(updated_data.get('political_status', '')),
                 str(updated_data.get('relationship_status', 'Regular')),
                 str(updated_data.get('gender', '')),
-                updated_data.get('age'), # Get age from updated_data
+                updated_data.get('age'),
                 record_id
             )
             cur.execute(query, values)
