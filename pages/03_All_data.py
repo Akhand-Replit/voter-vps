@@ -139,12 +139,18 @@ def all_data_page():
                 'পিতার_নাম': st.column_config.TextColumn('পিতার নাম', width="medium"),
                 'মাতার_নাম': st.column_config.TextColumn('মাতার নাম', width="medium"),
                 'পেশা': st.column_config.TextColumn('পেশা'),
+                'occupation_details': st.column_config.TextColumn('Occupation Details', width="large"),
                 'ঠিকানা': st.column_config.TextColumn('ঠিকানা', width="large"),
                 'জন্ম_তারিখ': st.column_config.TextColumn('জন্ম তারিখ'),
                 'phone_number': st.column_config.TextColumn('ফোন নম্বর'),
+                'whatsapp_number': st.column_config.LinkColumn('Whatsapp Number'),
                 'facebook_link': st.column_config.LinkColumn('ফেসবুক লিঙ্ক'),
+                'tiktok_link': st.column_config.LinkColumn('Tiktok Link'),
+                'youtube_link': st.column_config.LinkColumn('Youtube Link'),
+                'insta_link': st.column_config.LinkColumn('Insta Link'),
                 'photo_link': st.column_config.ImageColumn('ছবি', help="ছবির লিঙ্ক দিন"),
                 'description': st.column_config.TextColumn('বিবরণ'),
+                'political_status': st.column_config.TextColumn('Political Status'),
                 'relationship_status': st.column_config.SelectboxColumn(
                     'সম্পর্কের ধরণ', options=['Regular', 'Friend', 'Enemy', 'Connected'], required=True
                 ),
@@ -175,8 +181,9 @@ def all_data_page():
                     # Identify editable columns
                     editable_cols = [
                         'ক্রমিক_নং', 'নাম', 'ভোটার_নং', 'পিতার_নাম', 'মাতার_নাম', 'পেশা', 
-                        'ঠিকানা', 'জন্ম_তারিখ', 'phone_number', 'facebook_link', 
-                        'photo_link', 'description', 'relationship_status', 'gender' 
+                        'occupation_details', 'ঠিকানা', 'জন্ম_তারিখ', 'phone_number', 
+                        'whatsapp_number', 'facebook_link', 'tiktok_link', 'youtube_link', 'insta_link',
+                        'photo_link', 'description', 'political_status', 'relationship_status', 'gender' 
                     ]
                     
                     # Compare only the editable columns
