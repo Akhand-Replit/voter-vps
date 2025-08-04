@@ -89,14 +89,20 @@ def editable_search_page():
                         edited_mother = st.text_input("মাতার নাম", value=record.get('মাতার_নাম', ''), key=f"mother_{record['id']}")
                         edited_voter_no = st.text_input("ভোটার নং", value=record.get('ভোটার_নং', ''), key=f"voter_{record['id']}")
                         edited_phone = st.text_input("ফোন নম্বর", value=record.get('phone_number', ''), key=f"phone_{record['id']}")
+                        edited_whatsapp = st.text_input("Whatsapp Number", value=record.get('whatsapp_number', '').replace('https://wa.me/', ''), key=f"whatsapp_{record['id']}")
                         edited_fb = st.text_input("ফেসবুক লিঙ্ক", value=record.get('facebook_link', ''), key=f"fb_{record['id']}")
+                        edited_tiktok = st.text_input("Tiktok Link", value=record.get('tiktok_link', ''), key=f"tiktok_{record['id']}")
+
 
                     with c2:
                         edited_si = st.text_input("ক্রমিক নং", value=record.get('ক্রমিক_নং', ''), key=f"si_{record['id']}")
                         edited_occupation = st.text_input("পেশা", value=record.get('পেশা', ''), key=f"occupation_{record['id']}")
+                        edited_occupation_details = st.text_area("Occupation Details", value=record.get('occupation_details', ''), key=f"occupation_details_{record['id']}")
                         edited_dob = st.text_input("জন্ম তারিখ", value=record.get('জন্ম_তারিখ', ''), key=f"dob_{record['id']}")
                         edited_address = st.text_area("ঠিকানা", value=record.get('ঠিকানা', ''), key=f"address_{record['id']}")
                         edited_photo = st.text_input("ছবির লিঙ্ক", value=record.get('photo_link', ''), key=f"photo_{record['id']}")
+                        edited_youtube = st.text_input("Youtube Link", value=record.get('youtube_link', ''), key=f"youtube_{record['id']}")
+                        edited_insta = st.text_input("Insta Link", value=record.get('insta_link', ''), key=f"insta_{record['id']}")
                     
                     # Age display (not editable directly)
                     st.markdown(f"**বয়স:** {record.get('age', 'N/A')}")
@@ -113,7 +119,8 @@ def editable_search_page():
                         index=gender_options.index(current_gender),
                         key=f"gender_{record['id']}"
                     )
-
+                    
+                    edited_political_status = st.text_input("Political Status", value=record.get('political_status', ''), key=f"political_status_{record['id']}")
                     edited_description = st.text_area("বিবরণ", value=record.get('description', ''), key=f"desc_{record['id']}")
                     
                     st.markdown("---")
@@ -143,8 +150,12 @@ def editable_search_page():
                             updated_data = {
                                 'ক্রমিক_নং': edited_si, 'নাম': edited_name, 'ভোটার_নং': edited_voter_no,
                                 'পিতার_নাম': edited_father, 'মাতার_নাম': edited_mother, 'পেশা': edited_occupation,
+                                'occupation_details': edited_occupation_details,
                                 'ঠিকানা': edited_address, 'জন্ম_তারিখ': edited_dob, 'phone_number': edited_phone,
-                                'facebook_link': edited_fb, 'photo_link': edited_photo, 'description': edited_description,
+                                'whatsapp_number': edited_whatsapp,
+                                'facebook_link': edited_fb, 'tiktok_link': edited_tiktok, 'youtube_link': edited_youtube, 'insta_link': edited_insta,
+                                'photo_link': edited_photo, 'description': edited_description,
+                                'political_status': edited_political_status,
                                 'relationship_status': edited_relationship,
                                 'gender': edited_gender # Include gender in updated data
                             }
