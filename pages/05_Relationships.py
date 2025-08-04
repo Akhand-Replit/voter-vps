@@ -61,19 +61,27 @@ def display_relationship_card(record, db):
             st.markdown(f"**ভোটার নং:** {record['ভোটার_নং']}")
             st.markdown(f"**পিতার নাম:** {record['পিতার_নাম']}")
             st.markdown(f"**মাতার নাম:** {record['মাতার_নাম']}")
-        with col4:
             st.markdown(f"**পেশা:** {record['পেশা']}")
+            st.markdown(f"**Occupation Details:** {record.get('occupation_details', 'N/A')}")
+        with col4:
             st.markdown(f"**জন্ম তারিখ:** {record.get('জন্ম_তারিখ', 'N/A')}")
             st.markdown(f"**ঠিকানা:** {record['ঠিকানা']}")
             st.markdown(f"**লিঙ্গ:** {record.get('gender', 'N/A')}") # Display gender
             st.markdown(f"**বয়স:** {record.get('age', 'N/A')}") # Display age
+            st.markdown(f"**Political Status:** {record.get('political_status', 'N/A')}")
 
         # Additional contact information
         st.markdown(f"**ফোন নাম্বার:** {record.get('phone_number', 'N/A')}")
+        if record.get('whatsapp_number'):
+            st.markdown(f"**Whatsapp:** [Link]({record.get('whatsapp_number')})")
         if record.get('facebook_link'):
             st.markdown(f"**ফেসবুক:** [Link]({record.get('facebook_link')})")
-        else:
-            st.markdown("**ফেসবুক:** N/A")
+        if record.get('tiktok_link'):
+            st.markdown(f"**Tiktok:** [Link]({record.get('tiktok_link')})")
+        if record.get('youtube_link'):
+            st.markdown(f"**Youtube:** [Link]({record.get('youtube_link')})")
+        if record.get('insta_link'):
+            st.markdown(f"**Instagram:** [Link]({record.get('insta_link')})")
 
 
         # Description
